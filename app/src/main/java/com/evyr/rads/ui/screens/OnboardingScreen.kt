@@ -46,6 +46,8 @@ import com.evyr.rads.data.local.DetailLevel
 import com.evyr.rads.data.local.Focus
 import com.evyr.rads.data.local.UserProfile
 import com.evyr.rads.ui.components.DialogActions
+import com.evyr.rads.ui.components.TrafficLight
+import com.evyr.rads.ui.components.lightState
 import java.util.Locale
 
 /**
@@ -459,30 +461,19 @@ private fun SampleStep(
     val verdict = remember(food, conditions, allergens, fatLimit) {
         VerdictRules.evaluate(food, emptyList(), fatLimit, conditions, allergens)
     }
-    val stampText = when (verdict.verdict) {
-        Verdict.PASS -> "Looks fine"
-        Verdict.CAUTION -> "Use caution"
-        Verdict.OVER_LIMIT -> "Over your limit"
-    }
-    val stampColor = when (verdict.verdict) {
-        Verdict.PASS -> MaterialTheme.colorScheme.secondary
-        Verdict.CAUTION -> MaterialTheme.colorScheme.primary
-        Verdict.OVER_LIMIT -> MaterialTheme.colorScheme.error
-    }
+    val state = lightState(verdict.verdict, allergy = verdict.allergyHits.isNotEmpty())
+    val stampText = state.word
+    val stampColor = state.light.color
 
     Prompt("Here's how a check looks")
     Note("An example food, checked against what you just told us. Real checks work the same way.")
     Spacer(Modifier.height(10.dp))
     Text(food.name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = onSurface)
     Spacer(Modifier.height(8.dp))
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .border(2.dp, stampColor, RoundedCornerShape(12.dp))
-            .padding(vertical = 14.dp),
-        contentAlignment = androidx.compose.ui.Alignment.Center
-    ) {
-        Text(stampText, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = stampColor)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        TrafficLight(state.light, dot = 26.dp)
+        Spacer(Modifier.width(16.dp))
+        Text(stampText, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = onSurface)
     }
     Spacer(Modifier.height(8.dp))
     if (verdict.allergyHits.isNotEmpty()) {

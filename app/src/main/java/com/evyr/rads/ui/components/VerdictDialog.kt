@@ -60,16 +60,13 @@ fun VerdictDialog(
     val secondary = MaterialTheme.colorScheme.secondary
     val error = MaterialTheme.colorScheme.error
 
-    val stampColor = when (verdict.verdict) {
-        Verdict.PASS -> secondary
-        Verdict.CAUTION -> primary
-        Verdict.OVER_LIMIT -> error
-    }
-    val stampText = when (verdict.verdict) {
-        Verdict.PASS -> "Looks fine"
-        Verdict.CAUTION -> "Use caution"
-        Verdict.OVER_LIMIT -> "Over your limit"
-    }
+    val state = lightState(
+        verdict.verdict,
+        incomplete = verdict.skipped.isNotEmpty(),
+        allergy = verdict.allergyHits.isNotEmpty()
+    )
+    val stampColor = state.light.color
+    val stampText = state.word
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -92,19 +89,18 @@ fun VerdictDialog(
             )
             Spacer(Modifier.height(12.dp))
 
-            // The stamp
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(2.dp, stampColor, RoundedCornerShape(12.dp))
-                    .padding(vertical = 14.dp),
-                contentAlignment = Alignment.Center
+            // The traffic light and its word: the first thing read in the dialog.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                TrafficLight(state.light, dot = 26.dp)
+                Spacer(Modifier.width(16.dp))
                 Text(
                     stampText,
-                    fontSize = 20.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = stampColor
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             Spacer(Modifier.height(8.dp))

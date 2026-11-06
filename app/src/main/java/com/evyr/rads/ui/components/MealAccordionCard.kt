@@ -119,7 +119,19 @@ fun MealAccordionCard(
     val overFat = entries.isNotEmpty() && mealFat >= fatWarnGrams
     val mealIssues = ConditionFlags.mealIssues(entries, conditions)
     val mealAllergyHits = entries.flatMap { AllergyChecker.check(it, allergens, customAllergens) }.distinct()
-    val hasAlert = overFat || mealIssues.any { it.severity == Verdict.OVER_LIMIT } || mealAllergyHits.isNotEmpty()
+    // A light only means something if the person told us what to watch for.
+    val showLight = entries.isNotEmpty() &&
+        (conditions.isNotEmpty() || allergens.isNotEmpty() || customAllergens.isNotEmpty())
+    val worst = maxOf(
+        entries.flatMap { ConditionFlags.forEntry(it, conditions) }.maxOfOrNull { it.severity.ordinal } ?: 0,
+        mealIssues.maxOfOrNull { it.severity.ordinal } ?: 0,
+        if (overFat || mealAllergyHits.isNotEmpty()) Verdict.OVER_LIMIT.ordinal else 0
+    )
+    val mealLight = when (worst) {
+        Verdict.OVER_LIMIT.ordinal -> Light.STOP
+        Verdict.CAUTION.ordinal -> Light.CAUTION
+        else -> Light.GO
+    }
 
     Column(
         Modifier
@@ -157,9 +169,9 @@ fun MealAccordionCard(
                     Text("${entries.size}", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = tint.text)
                 }
             }
-            if (hasAlert) {
+            if (showLight) {
                 Spacer(Modifier.width(8.dp))
-                Box(Modifier.size(8.dp).clip(CircleShape).background(error))
+                TrafficLight(mealLight, dot = 10.dp, horizontal = true, showSymbol = false)
             }
             Spacer(Modifier.weight(1f))
             if (total > 0) {
