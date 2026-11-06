@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -63,7 +64,8 @@ fun VerdictDialog(
     val state = lightState(
         verdict.verdict,
         incomplete = verdict.skipped.isNotEmpty(),
-        allergy = verdict.allergyHits.isNotEmpty()
+        allergy = verdict.allergyHits.isNotEmpty(),
+        estimate = food.source == "vision"
     )
     val stampColor = state.light.color
     val stampText = state.word
@@ -101,6 +103,16 @@ fun VerdictDialog(
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            if (food.source == "vision") {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "AI estimate. The numbers come from a photo or description and may be off. " +
+                        "Check them in the fields below before you log.",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF9C6A12)
                 )
             }
             Spacer(Modifier.height(8.dp))

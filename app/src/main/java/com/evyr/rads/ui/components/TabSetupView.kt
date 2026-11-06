@@ -493,6 +493,31 @@ fun TabSetupView(
 
         Spacer(Modifier.height(4.dp))
         Hairline()
+        SectionLabel("Safety and privacy")
+        val onSurfaceSoft = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+        listOf(
+            "R.A.D.S. gives general food guidance, not medical advice. It can be wrong. Your doctor's or dietitian's instructions always come first.",
+            "Each food is checked against the conditions and limits you set. Default limits are general starting points, not personalized advice.",
+            "Food data comes from USDA FoodData Central and Open Food Facts (community-edited, so it can contain errors), plus AI estimates from Google Gemini for photos. AI estimates are labelled and are never shown as a green light.",
+            "Allergy checks only catch what is written in a food's name or ingredients. They cannot detect cross-contact, so keep reading labels and asking restaurants.",
+            "Your profile and log stay on this phone. Searches go to USDA and Open Food Facts. Photos and some food text go to Google Gemini with your own key."
+        ).forEach {
+            Text(it, fontSize = 12.sp, color = onSurfaceSoft, modifier = Modifier.padding(bottom = 6.dp))
+        }
+        Text(
+            "Read the full privacy policy",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.accessibleClick("Open the privacy policy") {
+                runCatching {
+                    uriHandler.openUri("https://github.com/ApartmentDog/daily-log/blob/main/PRIVACY.md")
+                }
+            }
+        )
+
+        Spacer(Modifier.height(4.dp))
+        Hairline()
         SectionLabel("About")
         StatRow("Version", BuildConfig.VERSION_NAME, emphasize = true)
         StatRow("Build", BuildConfig.VERSION_CODE.toString())
@@ -527,8 +552,8 @@ private fun SaveBar(
             modifier = Modifier
                 .clip(RoundedCornerShape(10.dp))
                 .background(if (dirty) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
-                .clickable(enabled = dirty) { onSave() }
-                .padding(horizontal = 10.dp, vertical = 8.dp)
+                .accessibleClick("Save profile", enabled = dirty) { onSave() }
+                .padding(horizontal = 6.dp)
         )
         Spacer(Modifier.width(12.dp))
         Text(

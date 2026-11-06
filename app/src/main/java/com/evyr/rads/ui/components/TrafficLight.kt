@@ -46,10 +46,17 @@ data class LightState(val light: Light, val word: String)
  * the source had no data for something a condition cares about, that's amber,
  * because "go" would claim more than the app actually knows.
  */
-fun lightState(verdict: Verdict, incomplete: Boolean = false, allergy: Boolean = false): LightState =
+fun lightState(
+    verdict: Verdict,
+    incomplete: Boolean = false,
+    allergy: Boolean = false,
+    estimate: Boolean = false
+): LightState =
     when {
         allergy || verdict == Verdict.OVER_LIMIT -> LightState(Light.STOP, "Better to skip")
         verdict == Verdict.CAUTION -> LightState(Light.CAUTION, "Be careful")
+        // AI-estimated numbers can be off, so a pass on them is never a green light.
+        estimate -> LightState(Light.CAUTION, "Estimate: check it")
         incomplete -> LightState(Light.CAUTION, "Not fully checked")
         else -> LightState(Light.GO, "Okay")
     }
