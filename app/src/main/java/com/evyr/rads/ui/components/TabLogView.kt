@@ -326,13 +326,13 @@ private fun CheckFoodButton(onClick: () -> Unit, onCheckMenu: (() -> Unit)?) {
     }
     if (onCheckMenu != null) {
         Text(
-            "Eating out? Check a whole menu",
+            "Eating out? Menu mode",
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             color = Color.White,
             modifier = Modifier
                 .fillMaxWidth()
-                .accessibleClick("Check a whole menu from a photo", onClick = onCheckMenu)
+                .accessibleClick("Open menu mode: photograph a menu", onClick = onCheckMenu)
                 .padding(top = 6.dp)
         )
     }

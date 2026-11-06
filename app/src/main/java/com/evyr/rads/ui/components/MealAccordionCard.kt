@@ -436,7 +436,21 @@ private fun FoodRow(
                 )
             }
             if (worst == Verdict.CAUTION || worst == Verdict.OVER_LIMIT) {
-                AppAction("Lighter idea for next time", onSuggestSwaps)
+                Row(
+                    Modifier
+                        .accessibleClick("Get a lighter idea for next time", onClick = onSuggestSwaps)
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IdeaIcon(26.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Lighter idea for next time",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = onSurface
+                    )
+                }
             }
             AppAction(if (isSafe) "Remove from safe foods" else "Mark as safe food", onToggleSafe)
             AppAction("Delete entry", onDelete, warn = true)

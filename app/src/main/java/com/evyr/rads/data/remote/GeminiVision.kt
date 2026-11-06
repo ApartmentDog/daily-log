@@ -252,7 +252,8 @@ Rules:
         model: String,
         imageBytes: ByteArray,
         mimeType: String = "image/jpeg",
-        menu: Boolean = false
+        menu: Boolean = false,
+        restaurant: String? = null
     ): Result = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) return@withContext Result.Failed("No API key set.")
         try {
@@ -260,12 +261,17 @@ Rules:
 
             val payload = JSONObject().apply {
                 put("contents", JSONArray().put(
-                    JSONObject().put("parts", JSONArray()
-                        .put(JSONObject().put("text", if (menu) MENU_PROMPT else PROMPT))
-                        .put(JSONObject().put("inline_data", JSONObject()
+                    JSONObject().put("parts", JSONArray().apply {
+                        put(JSONObject().put("text", if (menu) MENU_PROMPT else PROMPT))
+                        if (menu && !restaurant.isNullOrBlank()) {
+                            put(JSONObject().put("text",
+                                "The restaurant is: ${restaurant.trim()}. Use that restaurant's published " +
+                                    "nutrition for these dishes where you know it."))
+                        }
+                        put(JSONObject().put("inline_data", JSONObject()
                             .put("mime_type", mimeType)
                             .put("data", b64)))
-                    )
+                    })
                 ))
                 put("generationConfig", JSONObject().put("temperature", 0.2))
             }

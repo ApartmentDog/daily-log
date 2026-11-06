@@ -388,7 +388,7 @@ private fun num(v: Double): String =
 
 
 /** One plain sentence for the top of the dialog; the long version lives under Details. */
-private fun plainSentence(food: ScannedFood, verdict: VerdictResult, state: LightState): String {
+internal fun plainSentence(food: ScannedFood, verdict: VerdictResult, state: LightState): String {
     verdict.allergyHits.firstOrNull()?.let {
         return "This matches your ${it.label} allergy."
     }

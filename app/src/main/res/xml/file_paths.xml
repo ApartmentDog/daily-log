@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Menu photos are taken into the cache folder, read once, and left for Android to clear. -->
+    <cache-path name="menu_photos" path="menu/" />
+</paths>

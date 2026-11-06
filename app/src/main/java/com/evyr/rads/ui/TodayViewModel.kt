@@ -249,6 +249,8 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
 
     sealed class MenuState {
         object Idle : MenuState()
+        /** Collecting photos of the menu, one per page. */
+        data class Capture(val pages: Int) : MenuState()
         data class Working(val message: String) : MenuState()
         data class Failed(val message: String) : MenuState()
         data class Done(val dishes: List<MenuDish>) : MenuState()
@@ -256,51 +258,83 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _menuState = MutableStateFlow<MenuState>(MenuState.Idle)
     val menuState: StateFlow<MenuState> = _menuState.asStateFlow()
+    private val menuPages = mutableListOf<ByteArray>()
 
-    fun clearMenu() { _menuState.value = MenuState.Idle }
+    /** Opens menu mode with no pages yet. */
+    fun openMenuMode() {
+        menuPages.clear()
+        _menuState.value = MenuState.Capture(0)
+    }
 
-    /** Reads a menu photo and judges every dish on its own (nothing is logged). */
-    fun onMenuCaptured(bytes: ByteArray) {
+    fun clearMenu() {
+        menuPages.clear()
+        _menuState.value = MenuState.Idle
+    }
+
+    fun addMenuPage(bytes: ByteArray) {
+        menuPages.add(bytes)
+        _menuState.value = MenuState.Capture(menuPages.size)
+    }
+
+    fun backToMenuPhotos() { _menuState.value = MenuState.Capture(menuPages.size) }
+
+    /** Reads every page, merges the dishes, and judges each on its own (nothing is logged). */
+    fun analyzeMenu(restaurant: String) {
+        val pages = menuPages.toList()
+        if (pages.isEmpty()) return
         viewModelScope.launch {
             val ctx = getApplication<Application>()
             val key = SecureStore.geminiKey(ctx)
             if (key.isBlank()) {
-                _menuState.value = MenuState.Failed("Add a Gemini key in Setup to check a menu.")
+                _menuState.value = MenuState.Failed("Add a Gemini key in Setup to use menu mode.")
                 return@launch
             }
-            _menuState.value = MenuState.Working("Reading the menu...")
-            var result = GeminiVision.analyze(key, SecureStore.geminiModel(ctx), bytes, menu = true)
-            if (result is GeminiVision.Result.ModelRetired) {
-                val suggested = result.suggested
-                SecureStore.setGeminiModel(ctx, suggested)
-                result = GeminiVision.analyze(key, suggested, bytes, menu = true)
-            }
-            _menuState.value = when (val r = result) {
-                is GeminiVision.Result.Found -> {
-                    val profile = profileDao.get()
-                    MenuState.Done(r.foods.map { f ->
-                        MenuDish(
-                            f,
-                            VerdictRules.evaluate(
-                                food = f,
-                                mealEntries = emptyList(),
-                                fatLimitPerMeal = profile?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS,
-                                conditions = profile?.conditionSet() ?: emptySet(),
-                                allergens = profile?.allergenSet() ?: emptySet(),
-                                customAllergens = com.evyr.rads.data.CustomAllergen.parseCsv(profile?.customAllergens),
-                                limits = profile?.limits() ?: com.evyr.rads.data.Limits()
-                            )
-                        )
-                    })
+            _menuState.value = MenuState.Working(
+                if (pages.size > 1) "Reading ${pages.size} pages..." else "Reading the menu..."
+            )
+            val found = mutableListOf<ScannedFood>()
+            var error: String? = null
+            for (bytes in pages) {
+                var result = GeminiVision.analyze(
+                    key, SecureStore.geminiModel(ctx), bytes, menu = true, restaurant = restaurant
+                )
+                if (result is GeminiVision.Result.ModelRetired) {
+                    val suggested = result.suggested
+                    SecureStore.setGeminiModel(ctx, suggested)
+                    result = GeminiVision.analyze(key, suggested, bytes, menu = true, restaurant = restaurant)
                 }
-                is GeminiVision.Result.Failed ->
-                    MenuState.Failed(
-                        if (r.message == "No match found.") "Couldn't read any dishes. Try a closer, brighter photo of the menu."
-                        else r.message
-                    )
-                is GeminiVision.Result.ModelRetired ->
-                    MenuState.Failed("The AI model name is out of date. Set it to \"${r.suggested}\" in Setup.")
+                when (val r = result) {
+                    is GeminiVision.Result.Found -> found += r.foods
+                    is GeminiVision.Result.Failed -> if (error == null) error = r.message
+                    is GeminiVision.Result.ModelRetired ->
+                        if (error == null) error = "The AI model name is out of date. Set it to \"${r.suggested}\" in Setup."
+                }
             }
+            if (found.isEmpty()) {
+                _menuState.value = MenuState.Failed(
+                    if (error == null || error == "No match found.")
+                        "Couldn't read any dishes. Try a closer, brighter photo with the whole page in view."
+                    else error
+                )
+                return@launch
+            }
+            val profile = profileDao.get()
+            _menuState.value = MenuState.Done(
+                found.distinctBy { it.name.trim().lowercase() }.map { f ->
+                    MenuDish(
+                        f,
+                        VerdictRules.evaluate(
+                            food = f,
+                            mealEntries = emptyList(),
+                            fatLimitPerMeal = profile?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS,
+                            conditions = profile?.conditionSet() ?: emptySet(),
+                            allergens = profile?.allergenSet() ?: emptySet(),
+                            customAllergens = com.evyr.rads.data.CustomAllergen.parseCsv(profile?.customAllergens),
+                            limits = profile?.limits() ?: com.evyr.rads.data.Limits()
+                        )
+                    )
+                }
+            )
         }
     }
 

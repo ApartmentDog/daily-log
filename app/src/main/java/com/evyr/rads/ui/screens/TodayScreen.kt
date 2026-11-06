@@ -108,9 +108,10 @@ fun TodayScreen() {
     var activeMeal by remember { mutableStateOf(vm.mealSlotForNow()) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
-    var showMenuSource by remember { mutableStateOf(false) }
-    // True between tapping "Check a menu" and the photo coming back (or being cancelled).
+    // True between asking for a gallery photo for the menu and it coming back (or being cancelled).
     var menuPending by remember { mutableStateOf(false) }
+    // Where the camera app is saving the full-size menu photo right now.
+    var menuPhotoUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val menuState by vm.menuState.collectAsState()
     val swapState by vm.swapState.collectAsState()
 
@@ -123,7 +124,7 @@ fun TodayScreen() {
     ) { uri ->
         if (uri != null) {
             readBytes(context, uri)?.let {
-                if (menuPending) vm.onMenuCaptured(it) else vm.onPhotoCaptured(it)
+                if (menuPending) vm.addMenuPage(shrinkForUpload(it)) else vm.onPhotoCaptured(it)
             }
         }
         menuPending = false
@@ -136,9 +137,20 @@ fun TodayScreen() {
         if (bitmap != null) {
             val out = ByteArrayOutputStream()
             bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, out)
-            if (menuPending) vm.onMenuCaptured(out.toByteArray()) else vm.onPhotoCaptured(out.toByteArray())
+            vm.onPhotoCaptured(out.toByteArray())
         }
-        menuPending = false
+    }
+
+    // Menu photos need the full-size picture (the small preview is too blurry to
+    // read menu text), so the camera app saves into our cache and we read it back.
+    val menuCameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { saved ->
+        val uri = menuPhotoUri
+        if (saved && uri != null) {
+            readBytes(context, uri)?.let { vm.addMenuPage(shrinkForUpload(it)) }
+        }
+        menuPhotoUri = null
     }
 
     val listState = rememberLazyListState()
@@ -276,7 +288,7 @@ fun TodayScreen() {
                                 context, "Menu check needs a Gemini key. Setup tab > AI food detection has steps to get one.",
                                 android.widget.Toast.LENGTH_LONG
                             ).show()
-                        } else showMenuSource = true
+                        } else vm.openMenuMode()
                     }
                 )
                 AppTab.STATS -> TabStatsView(
@@ -325,46 +337,42 @@ fun TodayScreen() {
         )
     }
 
-    if (showMenuSource) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showMenuSource = false },
-            title = { Text("Check a menu") },
-            text = { Text("Take a photo of the menu, or pick one you already have. Nothing is logged.") },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
-                    showMenuSource = false
-                    menuPending = true
-                    runCatching { cameraLauncher.launch(null) }.onFailure {
-                        menuPending = false
-                        android.widget.Toast.makeText(
-                            context, "Couldn't open a camera app on this phone.", android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }) { Text("Take photo") }
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(onClick = {
-                    showMenuSource = false
-                    menuPending = true
-                    galleryLauncher.launch(
-                        androidx.activity.result.PickVisualMediaRequest(
-                            ActivityResultContracts.PickVisualMedia.ImageOnly
-                        )
-                    )
-                }) { Text("From gallery") }
-            }
-        )
-    }
-
     if (swapState != TodayViewModel.SwapState.Idle) {
         SwapDialog(state = swapState, onDismiss = { vm.clearSwap() })
     }
 
     if (menuState != TodayViewModel.MenuState.Idle) {
-        MenuCheckDialog(
+        MenuModeDialog(
             state = menuState,
             hasConditions = !(profile?.conditionSet().isNullOrEmpty()) || !(profile?.allergenSet().isNullOrEmpty()),
+            onTakePhoto = {
+                runCatching {
+                    val dir = java.io.File(context.cacheDir, "menu").apply { mkdirs() }
+                    val file = java.io.File(dir, "menu_${System.nanoTime()}.jpg")
+                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                        context, "${context.packageName}.fileprovider", file
+                    )
+                    menuPhotoUri = uri
+                    menuCameraLauncher.launch(uri)
+                }.onFailure {
+                    menuPhotoUri = null
+                    android.widget.Toast.makeText(
+                        context, "Couldn't open a camera app on this phone.", android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            onPickPhoto = {
+                menuPending = true
+                galleryLauncher.launch(
+                    androidx.activity.result.PickVisualMediaRequest(
+                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                    )
+                )
+            },
+            onAnalyze = { vm.analyzeMenu(it) },
             onPickDish = { vm.assess(it.food, activeMeal) },
+            onBackToPhotos = { vm.backToMenuPhotos() },
+            onRestart = { vm.openMenuMode() },
             onDismiss = { vm.clearMenu() }
         )
     }
@@ -468,3 +476,36 @@ private fun readBytes(context: Context, uri: android.net.Uri): ByteArray? =
         context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
     }.getOrNull()
 
+
+/**
+ * Full-size photos can be several MB. Menu text reads fine at about 2000 px on the
+ * long side, so larger pictures are scaled down before they are sent.
+ */
+private fun shrinkForUpload(bytes: ByteArray, maxSide: Int = 2000): ByteArray = runCatching {
+    val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    val longSide = maxOf(bounds.outWidth, bounds.outHeight)
+    if (longSide <= maxSide) return@runCatching bytes
+    var sample = 1
+    while (longSide / (sample * 2) >= maxSide) sample *= 2
+    val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+    val decoded = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts) ?: return@runCatching bytes
+    // Re-encoding drops the EXIF rotation tag, so apply it to the pixels first or the menu arrives sideways.
+    val degrees = when (
+        android.media.ExifInterface(java.io.ByteArrayInputStream(bytes)).getAttributeInt(
+            android.media.ExifInterface.TAG_ORIENTATION, android.media.ExifInterface.ORIENTATION_NORMAL
+        )
+    ) {
+        android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+        android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+        android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+        else -> 0f
+    }
+    val bmp = if (degrees == 0f) decoded else android.graphics.Bitmap.createBitmap(
+        decoded, 0, 0, decoded.width, decoded.height,
+        android.graphics.Matrix().apply { postRotate(degrees) }, true
+    )
+    val out = java.io.ByteArrayOutputStream()
+    bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, out)
+    out.toByteArray()
+}.getOrDefault(bytes)
