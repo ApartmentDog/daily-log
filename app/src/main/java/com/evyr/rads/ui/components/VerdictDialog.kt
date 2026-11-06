@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -113,6 +114,14 @@ fun VerdictDialog(
                 Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Text(
+                    food.name,
+                    fontSize = if (simple) 20.sp else 17.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = onSurface,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(10.dp))
                 TrafficLight(state.light, dot = 44.dp, animate = true)
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -141,16 +150,23 @@ fun VerdictDialog(
             }
             if (onSuggestSwaps != null && state.light != Light.GO) {
                 Spacer(Modifier.height(10.dp))
-                Text(
-                    "Lighter idea for next time",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = secondary,
-                    modifier = Modifier
+                // A real button in a neutral tone, so it never reads as a green "go".
+                Box(
+                    Modifier
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, onSurface.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
                         .accessibleClick("Get a lighter idea for next time", onClick = onSuggestSwaps),
-                    textAlign = TextAlign.Center
-                )
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "\uD83D\uDCAD\uD83D\uDCA1  Lighter idea",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = onSurface,
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 16.dp)
+                    )
+                }
             }
             Spacer(Modifier.height(8.dp))
             Text(
@@ -373,8 +389,9 @@ private fun plainSentence(food: ScannedFood, verdict: VerdictResult, state: Ligh
     val worstWarning = verdict.warnings.maxByOrNull { it.severity.ordinal }
     if (worstWarning != null && worstWarning.severity != Verdict.PASS) {
         val detail = worstWarning.details.firstOrNull()?.replaceFirstChar { it.uppercase() }
-        return if (detail != null) "$detail. Flagged for ${worstWarning.condition.short}."
-        else "Flagged for ${worstWarning.condition.short}."
+        val cond = worstWarning.condition.label.lowercase()
+        return if (detail != null) "$detail. Flagged for $cond."
+        else "Flagged for $cond."
     }
     if (verdict.verdict != Verdict.PASS) {
         return verdict.reasons.firstOrNull() ?: "Over your meal fat limit."
