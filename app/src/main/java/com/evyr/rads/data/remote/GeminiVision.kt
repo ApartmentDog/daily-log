@@ -149,9 +149,14 @@ about to eat) something that came up as a caution or a skip. Suggest up to 3
 lighter things to try NEXT TIME instead.
 
 Respond with ONLY a JSON array, no markdown fences, no commentary:
-[ { "where": "restaurant, chain or store, or empty if it applies anywhere",
-    "order": "the specific item or the specific change to ask for",
-    "why": "one short sentence tying it to the problem listed" } ]
+[ { "where": "",
+    "order": "",
+    "why": "" } ]
+
+Fill the fields like this:
+- "where": the name of a restaurant or store, or "" if the idea works anywhere.
+- "order": the item or the change to ask for, 8 words or fewer.
+- "why": 12 words or fewer, tied to the problem listed.
 
 Rules:
 - If the food looks like it came from a particular restaurant or brand, give
@@ -214,8 +219,12 @@ Rules:
                 val swaps = (0 until arr.length()).mapNotNull { i ->
                     val o = arr.optJSONObject(i) ?: return@mapNotNull null
                     val order = o.optString("order").trim()
+                    // Models sometimes echo instructions back instead of filling the field.
+                    val where = o.optString("where").trim()
+                        .takeUnless { it.contains("restaurant, chain", true) || it.contains("empty", true) }
+                        .orEmpty()
                     if (order.isBlank()) null
-                    else Swap(o.optString("where").trim(), order, o.optString("why").trim())
+                    else Swap(where, order, o.optString("why").trim())
                 }
                 if (swaps.isEmpty()) SwapResult.Failed("No ideas for this one.") else SwapResult.Ideas(swaps.take(3))
             }
