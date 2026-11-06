@@ -69,3 +69,10 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         db.execSQL("ALTER TABLE user_profile ADD COLUMN fatLimitFromDoctor INTEGER NOT NULL DEFAULT 0")
     }
 }
+
+/** v6 -> v7: user-adjusted per-meal limits. */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE user_profile ADD COLUMN limitOverrides TEXT NOT NULL DEFAULT ''")
+    }
+}

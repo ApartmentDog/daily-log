@@ -466,7 +466,8 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             fatLimitPerMeal = profile?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS,
             conditions = profile?.conditionSet() ?: emptySet(),
             allergens = profile?.allergenSet() ?: emptySet(),
-            customAllergens = com.evyr.rads.data.CustomAllergen.parseCsv(profile?.customAllergens)
+            customAllergens = com.evyr.rads.data.CustomAllergen.parseCsv(profile?.customAllergens),
+            limits = profile?.limits() ?: com.evyr.rads.data.Limits()
         )
     }
 

@@ -102,6 +102,7 @@ fun MealAccordionCard(
     selectedEntryId: Long?,
     fatWarnGrams: Double,
     conditions: Set<Condition>,
+    limits: com.evyr.rads.data.Limits = com.evyr.rads.data.Limits(),
     allergens: Set<Allergen>,
     customAllergens: List<CustomAllergen>,
     safeKeys: Set<String>,
@@ -120,7 +121,7 @@ fun MealAccordionCard(
     val total = entries.sumOf { it.calories }
     val mealFat = entries.sumOf { it.fatGrams }
     val overFat = entries.isNotEmpty() && mealFat >= fatWarnGrams
-    val mealIssues = ConditionFlags.mealIssues(entries, conditions)
+    val mealIssues = ConditionFlags.mealIssues(entries, conditions, limits)
     val mealAllergyHits = entries.flatMap { AllergyChecker.check(it, allergens, customAllergens) }.distinct()
     // A light only means something if the person told us what to watch for.
     val showLight = entries.isNotEmpty() &&

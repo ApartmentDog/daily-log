@@ -2,6 +2,7 @@ package com.evyr.rads.data.local
 
 import com.evyr.rads.data.Allergen
 import com.evyr.rads.data.Condition
+import com.evyr.rads.data.Limits
 import com.evyr.rads.data.Units
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -47,9 +48,13 @@ data class UserProfile(
      * True when the user entered the fat limit themselves (e.g. from their
      * doctor). False means [fatWarnGramsPerMeal] is the general starting point.
      */
-    val fatLimitFromDoctor: Boolean = false
+    val fatLimitFromDoctor: Boolean = false,
+    /** "label=value;label=value" for per-meal limits the user changed (see Limits). */
+    val limitOverrides: String = ""
 ) {
     fun focusSet(): Set<Focus> = Focus.parse(focus)
+
+    fun limits(): Limits = Limits.parse(limitOverrides)
 
     fun homeLayout(): HomeLayout {
         val f = focusSet()

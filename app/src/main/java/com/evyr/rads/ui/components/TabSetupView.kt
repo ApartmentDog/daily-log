@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import com.evyr.rads.BuildConfig
 import com.evyr.rads.data.Allergen
 import com.evyr.rads.data.Condition
+import com.evyr.rads.data.Limits
 import com.evyr.rads.data.CustomAllergen
 import com.evyr.rads.data.SecureStore
 import com.evyr.rads.data.Units
@@ -64,6 +65,8 @@ private data class SetupDraft(
     val rate: String,
     val activity: String,
     val fatLimit: String,
+    /** Typed per-meal limits by label; blank means "use the default". */
+    val limits: Map<String, String>,
     val conditions: Set<Condition>,
     val allergens: Set<Allergen>,
     val customAllergensText: String,
@@ -87,6 +90,7 @@ private data class SetupDraft(
                 rate = trim(p.rateLbsPerWeek),
                 activity = p.activityLevel,
                 fatLimit = trim(p.fatWarnGramsPerMeal),
+                limits = p.limits().overrides.mapValues { trim(it.value) },
                 conditions = p.conditionSet(),
                 allergens = p.allergenSet(),
                 customAllergensText = CustomAllergen.parseCsv(p.customAllergens).joinToString(", ") { it.label },
@@ -125,6 +129,14 @@ private data class SetupDraft(
         val fatV = fatLimit.trim().toDoubleOrNull()
             ?: return null to "Fat limit must be a number."
         if (fatV <= 0) return null to "Fat limit must be above zero."
+        val limitMap = mutableMapOf<String, Double>()
+        for (item in Limits.ITEMS) {
+            val text = limits[item.label].orEmpty().trim()
+            if (text.isBlank()) continue
+            val v = text.toDoubleOrNull()
+            if (v == null || v <= 0) return null to "${item.title} limit must be a number above zero, or blank for the default."
+            if (v != item.default) limitMap[item.label] = v
+        }
 
         val sameUnits = imperial == baseline.imperial
         val heightUntouched = sameUnits && feet == baseline.feet &&
@@ -146,6 +158,7 @@ private data class SetupDraft(
             fatWarnGramsPerMeal = fatV,
             // Typing a different number means the user chose it, not the default.
             fatLimitFromDoctor = base.fatLimitFromDoctor || fatV != base.fatWarnGramsPerMeal,
+            limitOverrides = Limits(limitMap).toCsv(),
             focus = Focus.toCsv(focus),
             detailLevel = detailLevel,
             conditions = Condition.toCsv(conditions),
@@ -328,6 +341,22 @@ fun TabSetupView(
             modifier = Modifier.padding(bottom = 4.dp)
         )
         EditNumber("Grams", d.fatLimit) { v -> edit { it.copy(fatLimit = v) } }
+
+        Spacer(Modifier.height(4.dp))
+        Hairline()
+        SectionLabel("Other limits (per meal)")
+        Text(
+            "Only used for the conditions you ticked below. Leave blank for the general starting point; " +
+                "if your doctor or dietitian gave you a number, enter it. Amber appears a bit before the limit.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Limits.ITEMS.forEach { item ->
+            EditNumber("${item.title} (${item.unit}), default ${trim(item.default)}", d.limits[item.label].orEmpty()) { v ->
+                edit { it.copy(limits = it.limits + (item.label to v)) }
+            }
+        }
 
         Spacer(Modifier.height(4.dp))
         Hairline()

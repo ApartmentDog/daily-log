@@ -159,7 +159,7 @@ private fun summarize(history: List<FoodLogEntry>, profile: UserProfile?): Trend
     meals.forEach { meal ->
         if (meal.sumOf { it.fatGrams } >= fatLimit) overFat++
         val flagged = meal.flatMap { e -> ConditionFlags.forEntry(e, conditions).map { it.condition } }.toSet() +
-            ConditionFlags.forMeal(meal, conditions).map { it.condition }.toSet()
+            ConditionFlags.forMeal(meal, conditions, profile?.limits() ?: com.evyr.rads.data.Limits()).map { it.condition }.toSet()
         flagged.forEach { c -> conditionCounts[c] = (conditionCounts[c] ?: 0) + 1 }
         if (meal.any { AllergyChecker.check(it, allergens, customs).isNotEmpty() }) allergyMeals++
     }

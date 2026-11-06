@@ -280,6 +280,15 @@ data class MealIssue(
     }
 }
 
+/** This rule with the user's own limit applied, if they set one for what it measures. */
+private fun AmountRule.under(limits: Limits): AmountRule =
+    if (label !in Limits.ADJUSTABLE || label !in limits.overrides) this
+    else AmountRule(
+        condition, label, unit,
+        limits.caution(label, caution, over), limits.over(label, over),
+        fromEntry, fromFood
+    )
+
 /** A per-meal amount rule for one condition. */
 private class AmountRule(
     val condition: Condition,
@@ -358,9 +367,10 @@ private fun FlagCollector.triggers(found: Set<Trigger>, conditions: Set<Conditio
  */
 private fun FlagCollector.amounts(
     conditions: Set<Condition>,
+    limits: Limits,
     valuesFor: (AmountRule) -> List<Double?>
 ) {
-    for (rule in AMOUNT_RULES) {
+    for (rule in AMOUNT_RULES.map { it.under(limits) }) {
         if (rule.condition !in conditions) continue
         val values = valuesFor(rule)
         if (values.none { it != null }) continue
@@ -409,9 +419,14 @@ object ConditionFlags {
      * the same thing (e.g. meal size for GERD, hernia and gallbladder) become
      * one issue naming every condition it affects. Worst first.
      */
-    fun mealIssues(entries: List<FoodLogEntry>, conditions: Set<Condition>): List<MealIssue> {
+    fun mealIssues(
+        entries: List<FoodLogEntry>,
+        conditions: Set<Condition>,
+        limits: Limits = Limits()
+    ): List<MealIssue> {
         if (conditions.isEmpty() || entries.isEmpty()) return emptyList()
         return AMOUNT_RULES
+            .map { it.under(limits) }
             .filter { it.condition in conditions }
             .groupBy { it.label }
             .mapNotNull { (label, rules) ->
@@ -440,10 +455,14 @@ object ConditionFlags {
     }
 
     /** Amount checks across a whole meal (sodium, sugar, carbs, sat fat, size). */
-    fun forMeal(entries: List<FoodLogEntry>, conditions: Set<Condition>): List<ConditionWarning> {
+    fun forMeal(
+        entries: List<FoodLogEntry>,
+        conditions: Set<Condition>,
+        limits: Limits = Limits()
+    ): List<ConditionWarning> {
         if (conditions.isEmpty() || entries.isEmpty()) return emptyList()
         return FlagCollector().apply {
-            amounts(conditions) { rule -> entries.map(rule.fromEntry) }
+            amounts(conditions, limits) { rule -> entries.map(rule.fromEntry) }
         }.build()
     }
 }
@@ -460,7 +479,8 @@ object VerdictRules {
         fatLimitPerMeal: Double,
         conditions: Set<Condition>,
         allergens: Set<Allergen> = emptySet(),
-        customAllergens: List<CustomAllergen> = emptyList()
+        customAllergens: List<CustomAllergen> = emptyList(),
+        limits: Limits = Limits()
     ): VerdictResult {
         val reasons = mutableListOf<String>()
 
@@ -483,7 +503,7 @@ object VerdictRules {
         val skipped = mutableListOf<String>()
         val collector = FlagCollector()
         collector.triggers(found, conditions)
-        collector.amounts(conditions) { rule ->
+        collector.amounts(conditions, limits) { rule ->
             val item = rule.fromFood(food)
             if (item == null) {
                 skipped += "${rule.label} for ${rule.condition.short}"

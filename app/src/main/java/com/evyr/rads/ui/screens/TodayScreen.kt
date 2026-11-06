@@ -229,6 +229,7 @@ fun TodayScreen() {
                     selectedEntry = selectedEntry,
                     fatWarnGrams = fatLimit,
                     conditions = profile?.conditionSet() ?: emptySet(),
+                    limits = profile?.limits() ?: com.evyr.rads.data.Limits(),
                     allergens = profile?.allergenSet() ?: emptySet(),
                     customAllergens = com.evyr.rads.data.CustomAllergen.parseCsv(profile?.customAllergens),
                     safeKeys = safeKeys,
