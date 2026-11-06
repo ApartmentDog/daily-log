@@ -70,7 +70,7 @@ fun AddEntryDialog(
                     "= ${((calories.toIntOrNull() ?: 0) * mult).toInt()} kcal, " +
                         "${entryFmt((fat.toDoubleOrNull() ?: 0.0) * mult)}g fat",
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                     modifier = Modifier.padding(start = 96.dp, top = 2.dp)
                 )
             }
@@ -81,8 +81,8 @@ fun AddEntryDialog(
                     "Cancel",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.clickable { onDismiss() }
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                    modifier = Modifier.accessibleClick("Cancel") { onDismiss() }
                 )
                 Spacer(Modifier.width(28.dp))
                 Text(
@@ -90,7 +90,7 @@ fun AddEntryDialog(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable {
+                    modifier = Modifier.accessibleClick("Save entry") {
                         if (name.isNotBlank()) {
                             val m = servings.toDoubleOrNull() ?: 1.0
                             onConfirm(
@@ -120,7 +120,7 @@ private fun EntryField(
         Text(
             label,
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.width(96.dp)
         )
         BasicTextField(

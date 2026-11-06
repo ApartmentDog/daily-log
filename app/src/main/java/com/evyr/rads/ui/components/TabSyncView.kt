@@ -107,7 +107,7 @@ private fun Note(text: String) {
     Text(
         text,
         fontSize = 12.sp,
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
     )
 }
 

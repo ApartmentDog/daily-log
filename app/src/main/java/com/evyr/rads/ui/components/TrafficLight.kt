@@ -15,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -31,10 +33,10 @@ import com.evyr.rads.ui.theme.WarnRust
  * green), the lit one carries a symbol, and the dialog pairs it with a word,
  * so it still reads for people who can't tell red from green.
  */
-enum class Light(val symbol: String, val color: Color, val symbolColor: Color) {
-    STOP("✕", WarnRust, Color.White),
-    CAUTION("!", WarnAmber, Color(0xFF2D1F10)),
-    GO("✓", SageAccent, Color(0xFF16301C))
+enum class Light(val symbol: String, val color: Color, val symbolColor: Color, val spoken: String) {
+    STOP("✕", WarnRust, Color.White, "Better to skip"),
+    CAUTION("!", WarnAmber, Color(0xFF2D1F10), "Be careful"),
+    GO("✓", SageAccent, Color(0xFF16301C), "Okay")
 }
 
 data class LightState(val light: Light, val word: String)
@@ -58,7 +60,8 @@ fun TrafficLight(
     modifier: Modifier = Modifier,
     dot: Dp = 22.dp,
     horizontal: Boolean = false,
-    showSymbol: Boolean = true
+    showSymbol: Boolean = true,
+    description: String = light.spoken
 ) {
     val housing = Color(0xFF2B2623)
     val shape = RoundedCornerShape(dot)
@@ -70,15 +73,19 @@ fun TrafficLight(
             Lamp(l, lit = l == light, size = dot, showSymbol = showSymbol)
         }
     }
+    // Screen readers get the verdict as words; the lamps themselves are decoration.
+    val spoken = modifier.semantics(mergeDescendants = true) {
+        contentDescription = "Traffic light: $description"
+    }
     if (horizontal) {
         Row(
-            modifier.clip(shape).background(housing).padding(pad),
+            spoken.clip(shape).background(housing).padding(pad),
             horizontalArrangement = Arrangement.spacedBy(gap),
             verticalAlignment = Alignment.CenterVertically
         ) { lamps() }
     } else {
         Column(
-            modifier.clip(shape).background(housing).padding(pad),
+            spoken.clip(shape).background(housing).padding(pad),
             verticalArrangement = Arrangement.spacedBy(gap),
             horizontalAlignment = Alignment.CenterHorizontally
         ) { lamps() }

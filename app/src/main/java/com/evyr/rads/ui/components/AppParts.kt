@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -44,7 +46,7 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
         text = text,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
         modifier = modifier.padding(top = 14.dp, bottom = 6.dp)
     )
 }
@@ -60,7 +62,7 @@ fun StatRow(
         Text(
             text = label,
             fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.width(110.dp)
         )
         Text(
@@ -88,7 +90,7 @@ fun BarMeter(
         Text(
             label,
             fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.width(76.dp)
         )
         Box(
@@ -133,7 +135,7 @@ fun AppTabBar(
                 text = tab,
                 fontSize = 13.sp,
                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                color = if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                 modifier = Modifier
                     .clickable { onSelect(tab) }
                     .clip(RoundedCornerShape(8.dp))
@@ -144,6 +146,21 @@ fun AppTabBar(
         }
     }
 }
+
+/**
+ * A tap target that meets the 48dp minimum, announces itself as a button, and
+ * says what it does ("Previous day") to a screen reader. Use it for small text
+ * and icon actions; content is centred inside the larger hit area.
+ */
+fun Modifier.accessibleClick(label: String, enabled: Boolean = true, onClick: () -> Unit): Modifier =
+    this.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+        .clickable(
+            enabled = enabled,
+            onClickLabel = label,
+            role = androidx.compose.ui.semantics.Role.Button,
+            onClick = onClick
+        )
+        .wrapContentSize(androidx.compose.ui.Alignment.Center)
 
 /**
  * Dialog footer: a quiet text action on the left, one filled primary action

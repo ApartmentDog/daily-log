@@ -193,7 +193,7 @@ fun TabSetupView(
         Text(
             "Loading your profile...",
             fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
         )
         return
     }
@@ -285,7 +285,7 @@ fun TabSetupView(
         Text(
             "What you want help with decides what the Log screen shows.",
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.padding(bottom = 6.dp)
         )
         Focus.values().forEach { f ->
@@ -307,7 +307,7 @@ fun TabSetupView(
                 Text(
                     f.blurb,
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
@@ -324,7 +324,7 @@ fun TabSetupView(
         Text(
             "Applied to each meal separately, not a daily budget.",
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.padding(bottom = 4.dp)
         )
         EditNumber("Grams", d.fatLimit) { v -> edit { it.copy(fatLimit = v) } }
@@ -336,7 +336,7 @@ fun TabSetupView(
             "Tick any that apply. Foods get flagged for them before you log. " +
                 "General guidance only -- your doctor's instructions override these.",
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.padding(bottom = 6.dp)
         )
         Condition.values().forEach { c ->
@@ -362,7 +362,7 @@ fun TabSetupView(
                 Text(
                     "Watches: " + c.watches,
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
@@ -377,7 +377,7 @@ fun TabSetupView(
                 "This is not a substitute for reading labels or checking with a restaurant -- " +
                 "it catches what's written in the food's name, not what touched it in the kitchen.",
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.padding(bottom = 6.dp)
         )
         Allergen.values().forEach { a ->
@@ -403,7 +403,7 @@ fun TabSetupView(
         Text(
             "Other allergies (comma-separated)",
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
         )
         EditField("e.g. mango, MSG", d.customAllergensText) { v ->
             edit { it.copy(customAllergensText = v) }
@@ -430,7 +430,7 @@ fun TabSetupView(
         Text(
             "USDA key. Blank uses a shared demo key that rate limits quickly. Saves as you type.",
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.padding(bottom = 4.dp)
         )
         var usdaKey by remember { mutableStateOf(SecureStore.usdaKey(bootCtx)) }
@@ -451,7 +451,7 @@ fun TabSetupView(
             "Photo logging and fallback estimates use Google's Gemini. You need your own key, " +
                 "and it saves as you type.",
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.padding(bottom = 4.dp)
         )
         val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
@@ -523,7 +523,7 @@ private fun SaveBar(
             "Save profile",
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = if (dirty) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            color = if (dirty) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
             modifier = Modifier
                 .clip(RoundedCornerShape(10.dp))
                 .background(if (dirty) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
@@ -542,7 +542,7 @@ private fun SaveBar(
             color = when {
                 error != null -> MaterialTheme.colorScheme.error
                 dirty -> MaterialTheme.colorScheme.primary
-                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f)
             }
         )
     }
@@ -595,7 +595,7 @@ private fun FieldShell(label: String, content: @Composable () -> Unit) {
         Text(
             label,
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.width(96.dp).padding(top = 7.dp)
         )
         Column(Modifier.weight(1f)) { content() }
@@ -610,7 +610,7 @@ private fun ChoiceRow(
     onSelect: (String) -> Unit
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f))
         Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
             options.forEach { opt ->
                 val isSel = opt == selected
@@ -618,7 +618,7 @@ private fun ChoiceRow(
                     text = opt.replace('_', ' ').replaceFirstChar { it.uppercase() },
                     fontSize = 12.sp,
                     fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    color = if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .clickable { onSelect(opt) }

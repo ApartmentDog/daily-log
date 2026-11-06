@@ -208,7 +208,7 @@ private fun LogHero(
                         "\u2039",
                         fontSize = 18.sp,
                         color = Color.White,
-                        modifier = Modifier.clickable { onPreviousDay() }.padding(horizontal = 8.dp)
+                        modifier = Modifier.accessibleClick("Previous day") { onPreviousDay() }
                     )
                     Text(
                         viewDate.format(DateTimeFormatter.ofPattern("EEE d MMM")),
@@ -220,8 +220,7 @@ private fun LogHero(
                         fontSize = 18.sp,
                         color = Color.White.copy(alpha = if (isToday) 0.35f else 1f),
                         modifier = Modifier
-                            .clickable(enabled = !isToday) { onNextDay() }
-                            .padding(horizontal = 8.dp)
+                            .accessibleClick("Next day", enabled = !isToday) { onNextDay() }
                     )
                 }
                 if (!isToday) {
@@ -234,17 +233,17 @@ private fun LogHero(
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color.White.copy(alpha = 0.22f))
-                            .clickable { onJumpToToday() }
-                            .padding(horizontal = 10.dp, vertical = 7.dp)
+                            .accessibleClick("Jump to today") { onJumpToToday() }
+                            .padding(horizontal = 6.dp)
                     )
                 }
                 Spacer(Modifier.weight(1f))
                 Box(
                     Modifier
-                        .size(40.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(Color.White)
-                        .clickable { onOpenProfile() },
+                        .clickable(onClickLabel = "Open setup", role = androidx.compose.ui.semantics.Role.Button) { onOpenProfile() },
                     contentAlignment = Alignment.Center
                 ) {
                     AppIconView(AppIcon.PERSON, Terracotta, iconSize = 20.dp, strokeWidth = 2.dp)
@@ -394,7 +393,7 @@ internal fun severityColor(v: Verdict) = when (v) {
     Verdict.OVER_LIMIT -> MaterialTheme.colorScheme.error
     // Darker amber than the lamp itself: the lamp colour is too pale to read as text on cream.
     Verdict.CAUTION -> Color(0xFF9C6A12)
-    Verdict.PASS -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+    Verdict.PASS -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f)
 }
 
 internal fun trim(v: Double): String =

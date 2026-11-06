@@ -73,7 +73,7 @@ fun FoodSearchDialog(
     onDismiss: () -> Unit
 ) {
     val onSurface = MaterialTheme.colorScheme.onSurface
-    val dim = onSurface.copy(alpha = 0.6f)
+    val dim = onSurface.copy(alpha = 0.72f)
     val primary = MaterialTheme.colorScheme.primary
 
     Dialog(onDismissRequest = onDismiss) {
@@ -107,7 +107,7 @@ fun FoodSearchDialog(
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.weight(1f)) {
                         if (query.isEmpty()) {
-                            Text("Food name or barcode", fontSize = 15.sp, color = onSurface.copy(alpha = 0.4f))
+                            Text("Food name or barcode", fontSize = 15.sp, color = onSurface.copy(alpha = 0.68f))
                         }
                         BasicTextField(
                             value = query,
@@ -130,8 +130,8 @@ fun FoodSearchDialog(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
                         .background(primary)
-                        .clickable { onSearch() }
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .clickable(onClickLabel = "Search", role = androidx.compose.ui.semantics.Role.Button) { onSearch() }
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
                 )
             }
 
@@ -150,7 +150,7 @@ fun FoodSearchDialog(
                 Text(
                     "Add a Gemini key in Setup to log from a photo.",
                     fontSize = 12.sp,
-                    color = onSurface.copy(alpha = 0.5f),
+                    color = onSurface.copy(alpha = 0.68f),
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
@@ -205,7 +205,7 @@ fun FoodSearchDialog(
                 results.isEmpty() -> Text(
                     "Search USDA and Open Food Facts together. Try \"grilled chicken\", or type or scan a package barcode.",
                     fontSize = 13.sp,
-                    color = onSurface.copy(alpha = 0.5f),
+                    color = onSurface.copy(alpha = 0.68f),
                     modifier = Modifier.padding(vertical = 18.dp)
                 )
                 else -> LazyColumn(Modifier.weight(1f, fill = false)) {
@@ -222,7 +222,7 @@ fun FoodSearchDialog(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = dim,
-                modifier = Modifier.clickable { onDismiss() }.padding(vertical = 6.dp, horizontal = 4.dp)
+                modifier = Modifier.accessibleClick("Cancel") { onDismiss() }
             )
         }
     }
@@ -258,7 +258,7 @@ private fun QuickHeader(text: String) {
         text,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
         modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)
     )
 }
@@ -302,10 +302,9 @@ private fun ResultRow(
                 Text(
                     "\u2715",
                     fontSize = 14.sp,
-                    color = onSurface.copy(alpha = 0.45f),
+                    color = onSurface.copy(alpha = 0.68f),
                     modifier = Modifier
-                        .clickable { onRemove() }
-                        .padding(start = 10.dp, end = 2.dp)
+                        .accessibleClick("Remove ${food.name} from safe foods") { onRemove() }
                 )
             }
             if (onQuickAdd != null) {
@@ -319,22 +318,22 @@ private fun ResultRow(
                         .padding(start = 8.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                        .clickable { onQuickAdd() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .accessibleClick("Log ${food.name} at the last amount") { onQuickAdd() }
+                        .padding(horizontal = 10.dp)
                 )
             }
         }
         Text(
             "${food.calories} kcal \u00B7 F ${food.fatGrams}g \u00B7 P ${food.proteinGrams}g \u00B7 C ${food.carbGrams}g",
             fontSize = 12.sp,
-            color = onSurface.copy(alpha = 0.6f),
+            color = onSurface.copy(alpha = 0.72f),
             modifier = Modifier.padding(top = 3.dp)
         )
         food.servingNote?.let {
             Text(
                 it,
                 fontSize = 11.sp,
-                color = onSurface.copy(alpha = 0.45f),
+                color = onSurface.copy(alpha = 0.68f),
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
@@ -379,8 +378,8 @@ fun QuantityDialog(
     }
 
     val onSurface = MaterialTheme.colorScheme.onSurface
-    val dim = onSurface.copy(alpha = 0.6f)
-    val faint = onSurface.copy(alpha = 0.45f)
+    val dim = onSurface.copy(alpha = 0.72f)
+    val faint = onSurface.copy(alpha = 0.68f)
     val primary = MaterialTheme.colorScheme.primary
     val error = MaterialTheme.colorScheme.error
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant

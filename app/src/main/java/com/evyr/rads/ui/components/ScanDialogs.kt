@@ -70,7 +70,7 @@ fun ScanResultPicker(
                             "${f.calories} kcal / ${f.fatGrams}g fat" +
                                 (f.confidence?.let { "  ($it)" } ?: ""),
                             fontSize = 12.sp,
-                            color = onSurface.copy(alpha = 0.55f)
+                            color = onSurface.copy(alpha = 0.68f)
                         )
                     }
                 }
@@ -82,8 +82,8 @@ fun ScanResultPicker(
                 "Cancel",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.clickable { onDismiss() }.padding(6.dp)
+                color = onSurface.copy(alpha = 0.72f),
+                modifier = Modifier.accessibleClick("Cancel") { onDismiss() }
             )
         }
     }
@@ -108,8 +108,8 @@ fun ScanStatusDialog(message: String, onDismiss: () -> Unit) {
                 "Close",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.clickable { onDismiss() }.padding(4.dp)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                modifier = Modifier.accessibleClick("Close") { onDismiss() }
             )
         }
     }

@@ -61,7 +61,7 @@ fun TabStatsView(
         Text(
             "Fat is assessed per meal, not per day.",
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.padding(bottom = 4.dp)
         )
         val limit = profile?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS
@@ -178,7 +178,7 @@ private fun summarize(history: List<FoodLogEntry>, profile: UserProfile?): Trend
 
 @Composable
 private fun TrendSection(history: List<FoodLogEntry>, profile: UserProfile?) {
-    val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
     Spacer(Modifier.height(6.dp))
     Hairline()
     SectionLabel("Last 30 days")

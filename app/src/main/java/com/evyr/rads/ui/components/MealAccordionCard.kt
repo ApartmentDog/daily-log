@@ -146,7 +146,10 @@ fun MealAccordionCard(
         Row(
             Modifier
                 .fillMaxWidth()
-                .clickable { onToggle() }
+                .clickable(
+                    onClickLabel = if (expanded) "Collapse $label" else "Expand $label",
+                    role = androidx.compose.ui.semantics.Role.Button
+                ) { onToggle() }
                 .padding(horizontal = 15.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -174,7 +177,10 @@ fun MealAccordionCard(
             }
             if (showLight) {
                 Spacer(Modifier.width(8.dp))
-                TrafficLight(mealLight, dot = 10.dp, horizontal = true, showSymbol = false)
+                TrafficLight(
+                    mealLight, dot = 10.dp, horizontal = true, showSymbol = false,
+                    description = "$label check: ${mealLight.spoken}"
+                )
             }
             Spacer(Modifier.weight(1f))
             if (total > 0) {
@@ -191,8 +197,8 @@ fun MealAccordionCard(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
                         .background(tint.chip)
-                        .clickable { onAdd() }
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .accessibleClick("Add food to $label") { onAdd() }
+                        .padding(horizontal = 8.dp)
                 )
                 Spacer(Modifier.width(8.dp))
             }
@@ -352,14 +358,14 @@ private fun FoodRow(
                         worst == Verdict.CAUTION ->
                             (if (reason != null) "Be careful: $reason" else "Be careful") to
                                 severityColor(Verdict.CAUTION)
-                        else -> "Okay" to onSurface.copy(alpha = 0.6f)
+                        else -> "Okay" to onSurface.copy(alpha = 0.72f)
                     }
                     Text(word, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = tone)
                 } else {
                     Text(
                         if (isSafe) "$sub \u00B7 Safe" else sub,
                         fontSize = 12.sp,
-                        color = onSurface.copy(alpha = 0.6f)
+                        color = onSurface.copy(alpha = 0.72f)
                     )
                 }
                 if (allergyHits.isNotEmpty()) {
@@ -375,7 +381,7 @@ private fun FoodRow(
                     Row(Modifier.padding(top = 2.dp)) {
                         flags.forEachIndexed { i, w ->
                             if (i > 0) {
-                                Text(" \u00B7 ", fontSize = 11.sp, color = onSurface.copy(alpha = 0.4f))
+                                Text(" \u00B7 ", fontSize = 11.sp, color = onSurface.copy(alpha = 0.68f))
                             }
                             Text(
                                 w.condition.short,

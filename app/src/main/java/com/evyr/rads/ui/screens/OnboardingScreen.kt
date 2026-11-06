@@ -143,7 +143,7 @@ fun OnboardingScreen(onComplete: (UserProfile) -> Unit) {
     val isLast = stepIndex >= steps.lastIndex
 
     val onSurface = MaterialTheme.colorScheme.onSurface
-    val dim = onSurface.copy(alpha = 0.6f)
+    val dim = onSurface.copy(alpha = 0.72f)
     val primary = MaterialTheme.colorScheme.primary
 
     fun heightCm(): Double = if (imperial) {
@@ -502,7 +502,7 @@ private fun SampleStep(
             )
             Text(
                 w.details.joinToString(", "),
-                fontSize = 12.sp, color = onSurface.copy(alpha = 0.6f),
+                fontSize = 12.sp, color = onSurface.copy(alpha = 0.72f),
                 modifier = Modifier.padding(start = 10.dp)
             )
         }
@@ -543,7 +543,7 @@ private fun SelectCard(
             Text(
                 blurb,
                 fontSize = 12.sp,
-                color = onSurface.copy(alpha = 0.65f),
+                color = onSurface.copy(alpha = 0.72f),
                 modifier = Modifier.padding(top = 3.dp)
             )
         }
@@ -575,7 +575,7 @@ private fun Note(text: String) {
     Text(
         text,
         fontSize = 12.sp,
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
         modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
     )
 }
@@ -591,7 +591,7 @@ private fun Field(
         Text(
             label,
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.width(96.dp).padding(top = 8.dp)
         )
         BasicTextField(
@@ -624,7 +624,7 @@ private fun Choices(
     val onSurface = MaterialTheme.colorScheme.onSurface
     val primary = MaterialTheme.colorScheme.primary
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(label, fontSize = 12.sp, color = onSurface.copy(alpha = 0.6f))
+        Text(label, fontSize = 12.sp, color = onSurface.copy(alpha = 0.72f))
         Spacer(Modifier.height(5.dp))
         options.forEach { opt ->
             val isSel = opt == selected
@@ -632,7 +632,7 @@ private fun Choices(
                 text = opt.replace('_', ' ').replaceFirstChar { it.uppercase() },
                 fontSize = 14.sp,
                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSel) primary else onSurface.copy(alpha = 0.55f),
+                color = if (isSel) primary else onSurface.copy(alpha = 0.68f),
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onSelect(opt) }

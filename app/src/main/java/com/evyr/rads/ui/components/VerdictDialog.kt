@@ -54,8 +54,8 @@ fun VerdictDialog(
     var carbs by remember { mutableStateOf(num(food.carbGrams)) }
 
     val onSurface = MaterialTheme.colorScheme.onSurface
-    val dim = onSurface.copy(alpha = 0.6f)
-    val faint = onSurface.copy(alpha = 0.45f)
+    val dim = onSurface.copy(alpha = 0.72f)
+    val faint = onSurface.copy(alpha = 0.68f)
     val primary = MaterialTheme.colorScheme.primary
     val secondary = MaterialTheme.colorScheme.secondary
     val error = MaterialTheme.colorScheme.error
@@ -229,7 +229,7 @@ fun VerdictDialog(
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = if (isSafeFood) dim else secondary,
-                modifier = Modifier.clickable { onToggleSafe() }.padding(vertical = 4.dp)
+                modifier = Modifier.accessibleClick(if (isSafeFood) "Remove from safe foods" else "Add to safe foods") { onToggleSafe() }
             )
 
             food.barcode?.let {
@@ -276,7 +276,7 @@ private fun EditRow(
         Text(
             label,
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             modifier = Modifier.width(88.dp).padding(top = 7.dp)
         )
         BasicTextField(
