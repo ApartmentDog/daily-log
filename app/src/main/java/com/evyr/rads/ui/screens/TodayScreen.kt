@@ -14,6 +14,10 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -27,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -152,7 +157,20 @@ fun TodayScreen() {
 
     // No FAB: the approved mockup logs food from each meal card's own
     // "+ Add to" button, which opens the same sheet the FAB used to.
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        vm.quickLogged.collect { entry ->
+            val result = snackbar.showSnackbar(
+                message = "Logged ${entry.name} to ${entry.mealSlot.replaceFirstChar { it.uppercase() }}",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) vm.deleteEntry(entry)
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             Column {
                 Hairline()
@@ -289,6 +307,11 @@ fun TodayScreen() {
             safeFoods = safeFoods.map { vm.safeAsScanned(it) },
             quickFoods = frequentFoods,
             onRemoveSafe = { vm.removeSafe(it) },
+            onQuickLog = { food ->
+                vm.quickLog(food, activeMeal)
+                showSearch = false
+                vm.resetSearch()
+            },
             onQueryChange = { vm.setSearchQuery(it) },
             onSearch = { vm.runSearch() },
             onPick = { vm.choosePortion(it) },
@@ -296,7 +319,7 @@ fun TodayScreen() {
             onTakePhoto = {
                 if (!vm.aiEnabled()) {
                     android.widget.Toast.makeText(
-                        context, "Photo logging needs a Gemini key. Add one in Setup.",
+                        context, "Photo logging needs a Gemini key. Setup tab > AI food detection has steps to get one.",
                         android.widget.Toast.LENGTH_LONG
                     ).show()
                     return@FoodSearchDialog
@@ -311,7 +334,7 @@ fun TodayScreen() {
             onPickPhoto = {
                 if (!vm.aiEnabled()) {
                     android.widget.Toast.makeText(
-                        context, "Photo logging needs a Gemini key. Add one in Setup.",
+                        context, "Photo logging needs a Gemini key. Setup tab > AI food detection has steps to get one.",
                         android.widget.Toast.LENGTH_LONG
                     ).show()
                     return@FoodSearchDialog

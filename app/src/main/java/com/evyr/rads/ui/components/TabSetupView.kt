@@ -448,10 +448,25 @@ fun TabSetupView(
         Hairline()
         SectionLabel("AI food detection")
         Text(
-            "Gemini key for photo and fallback estimates. Saves as you type.",
+            "Photo logging and fallback estimates use Google's Gemini. You need your own key, " +
+                "and it saves as you type.",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             modifier = Modifier.padding(bottom = 4.dp)
+        )
+        val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+        Text(
+            "How to get one:\n" +
+                "1. Tap here to open Google AI Studio and sign in with a Google account.\n" +
+                "2. Tap \"Create API key\".\n" +
+                "3. Copy the key and paste it below.\n" +
+                "Usage may be billed to your Google account, depending on your plan.",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .padding(bottom = 8.dp)
+                .clickable { runCatching { uriHandler.openUri("https://aistudio.google.com/apikey") } }
         )
         var apiKey by remember { mutableStateOf(SecureStore.geminiKey(bootCtx)) }
         var model by remember { mutableStateOf(SecureStore.geminiModel(bootCtx)) }

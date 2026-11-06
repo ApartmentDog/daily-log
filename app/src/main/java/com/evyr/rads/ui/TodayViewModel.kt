@@ -21,7 +21,10 @@ import com.evyr.rads.data.local.DEFAULT_FAT_WARN_GRAMS
 import com.evyr.rads.data.local.UserProfile
 import com.evyr.rads.health.HealthConnectManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
@@ -477,9 +480,9 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private suspend fun insertEvaluated(food: ScannedFood, mealSlot: String) {
+    private suspend fun insertEvaluated(food: ScannedFood, mealSlot: String): FoodLogEntry {
         val v = evaluateFor(food, mealSlot)
-        foodDao.insert(
+        val entry =
             FoodLogEntry(
                 timestamp = timestampForViewedDay(),
                 mealSlot = mealSlot,
@@ -497,7 +500,29 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                 sodiumMg = food.sodiumMg,
                 triggers = v.triggers.joinToString(",") { it.key }.ifBlank { null }
             )
-        )
+        return entry.copy(id = foodDao.insert(entry))
+    }
+
+    private val _quickLogged = MutableSharedFlow<FoodLogEntry>(extraBufferCapacity = 8)
+
+    /** Fires after a one-tap log so the screen can offer Undo. */
+    val quickLogged: SharedFlow<FoodLogEntry> = _quickLogged.asSharedFlow()
+
+    /**
+     * One-tap log of a remembered food at the amount it was last logged.
+     * Only a clean pass is logged straight away. Anything that needs a second
+     * look (caution, over a limit, an allergy match) opens the full verdict
+     * so a one-tap shortcut can never skip a warning.
+     */
+    fun quickLog(food: ScannedFood, mealSlot: String) {
+        viewModelScope.launch {
+            val v = evaluateFor(food, mealSlot)
+            if (v.verdict != Verdict.PASS || v.allergyHits.isNotEmpty()) {
+                _scanState.value = ScanState.Assess(food, v)
+                return@launch
+            }
+            _quickLogged.emit(insertEvaluated(food, mealSlot))
+        }
     }
 
     init {

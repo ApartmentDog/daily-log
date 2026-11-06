@@ -62,6 +62,7 @@ fun FoodSearchDialog(
     safeFoods: List<ScannedFood> = emptyList(),
     quickFoods: List<ScannedFood> = emptyList(),
     onRemoveSafe: (String) -> Unit = {},
+    onQuickLog: ((ScannedFood) -> Unit)? = null,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
     onPick: (ScannedFood) -> Unit,
@@ -182,7 +183,8 @@ fun FoodSearchDialog(
                                 ResultRow(
                                     food,
                                     badge = "Safe",
-                                    onRemove = { onRemoveSafe(SafeFood.keyFor(food.name)) }
+                                    onRemove = { onRemoveSafe(SafeFood.keyFor(food.name)) },
+                                    onQuickAdd = onQuickLog?.let { q -> { q(food) } }
                                 ) { onPick(food) }
                                 Hairline()
                             }
@@ -190,7 +192,11 @@ fun FoodSearchDialog(
                         if (recents.isNotEmpty()) {
                             item { QuickHeader("Recent & frequent") }
                             items(recents) { food ->
-                                ResultRow(food, badge = "Recent") { onPick(food) }
+                                ResultRow(
+                                    food,
+                                    badge = "Recent",
+                                    onQuickAdd = onQuickLog?.let { q -> { q(food) } }
+                                ) { onPick(food) }
                                 Hairline()
                             }
                         }
@@ -262,6 +268,7 @@ private fun ResultRow(
     food: ScannedFood,
     badge: String? = null,
     onRemove: (() -> Unit)? = null,
+    onQuickAdd: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
     val onSurface = MaterialTheme.colorScheme.onSurface
@@ -299,6 +306,21 @@ private fun ResultRow(
                     modifier = Modifier
                         .clickable { onRemove() }
                         .padding(start = 10.dp, end = 2.dp)
+                )
+            }
+            if (onQuickAdd != null) {
+                // One tap: log at the last amount. Anything with a warning still opens the verdict.
+                Text(
+                    "+ Log",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                        .clickable { onQuickAdd() }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 )
             }
         }
