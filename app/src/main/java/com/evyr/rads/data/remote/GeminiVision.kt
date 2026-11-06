@@ -102,6 +102,40 @@ Rules:
 - If you cannot identify any food, return [].
 """
 
+    private const val MENU_PROMPT = """
+You are a nutrition estimator reading a RESTAURANT MENU photo.
+
+List every dish you can read, up to 15, and estimate each for the standard
+portion the restaurant serves. Use the dish name and description, and allow
+for how it is cooked (frying, butter, cream, cheese, sauces, dressings).
+
+Respond with ONLY a JSON array, no markdown fences, no commentary:
+[
+  {
+    "name": "dish name as printed",
+    "calories": 0,
+    "fat_g": 0,
+    "saturated_fat_g": 0,
+    "protein_g": 0,
+    "carbs_g": 0,
+    "sugar_g": 0,
+    "fiber_g": 0,
+    "sodium_mg": 0,
+    "tags": [],
+    "portion": "what portion this assumes",
+    "confidence": "high" | "medium" | "low"
+  }
+]
+
+Rules:
+- Numbers only, no units inside the numeric fields.
+- "tags" lists which of these apply, using only these exact words:
+  caffeine, alcohol, spicy, fried, acidic, carbonated, chocolate_mint, dairy,
+  gluten, high_purine, high_fodmap, fructose. Use [] if none apply.
+- One entry per distinct dish. Skip drinks unless they are the point of the menu.
+- If the photo is not a menu or you cannot read it, return [].
+"""
+
     /** Text fallback for items neither database carries. */
     suspend fun estimateFromText(
         apiKey: String,
@@ -129,7 +163,8 @@ Rules:
         apiKey: String,
         model: String,
         imageBytes: ByteArray,
-        mimeType: String = "image/jpeg"
+        mimeType: String = "image/jpeg",
+        menu: Boolean = false
     ): Result = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) return@withContext Result.Failed("No API key set.")
         try {
@@ -138,7 +173,7 @@ Rules:
             val payload = JSONObject().apply {
                 put("contents", JSONArray().put(
                     JSONObject().put("parts", JSONArray()
-                        .put(JSONObject().put("text", PROMPT))
+                        .put(JSONObject().put("text", if (menu) MENU_PROMPT else PROMPT))
                         .put(JSONObject().put("inline_data", JSONObject()
                             .put("mime_type", mimeType)
                             .put("data", b64)))

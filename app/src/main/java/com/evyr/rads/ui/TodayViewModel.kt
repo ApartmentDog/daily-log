@@ -244,6 +244,66 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         data class Assess(val food: ScannedFood, val verdict: VerdictResult) : ScanState()
     }
 
+    /** One dish from a menu photo, already judged against the person's conditions. */
+    data class MenuDish(val food: ScannedFood, val verdict: VerdictResult)
+
+    sealed class MenuState {
+        object Idle : MenuState()
+        data class Working(val message: String) : MenuState()
+        data class Failed(val message: String) : MenuState()
+        data class Done(val dishes: List<MenuDish>) : MenuState()
+    }
+
+    private val _menuState = MutableStateFlow<MenuState>(MenuState.Idle)
+    val menuState: StateFlow<MenuState> = _menuState.asStateFlow()
+
+    fun clearMenu() { _menuState.value = MenuState.Idle }
+
+    /** Reads a menu photo and judges every dish on its own (nothing is logged). */
+    fun onMenuCaptured(bytes: ByteArray) {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            val key = SecureStore.geminiKey(ctx)
+            if (key.isBlank()) {
+                _menuState.value = MenuState.Failed("Add a Gemini key in Setup to check a menu.")
+                return@launch
+            }
+            _menuState.value = MenuState.Working("Reading the menu...")
+            var result = GeminiVision.analyze(key, SecureStore.geminiModel(ctx), bytes, menu = true)
+            if (result is GeminiVision.Result.ModelRetired) {
+                val suggested = result.suggested
+                SecureStore.setGeminiModel(ctx, suggested)
+                result = GeminiVision.analyze(key, suggested, bytes, menu = true)
+            }
+            _menuState.value = when (val r = result) {
+                is GeminiVision.Result.Found -> {
+                    val profile = profileDao.get()
+                    MenuState.Done(r.foods.map { f ->
+                        MenuDish(
+                            f,
+                            VerdictRules.evaluate(
+                                food = f,
+                                mealEntries = emptyList(),
+                                fatLimitPerMeal = profile?.fatWarnGramsPerMeal ?: DEFAULT_FAT_WARN_GRAMS,
+                                conditions = profile?.conditionSet() ?: emptySet(),
+                                allergens = profile?.allergenSet() ?: emptySet(),
+                                customAllergens = com.evyr.rads.data.CustomAllergen.parseCsv(profile?.customAllergens),
+                                limits = profile?.limits() ?: com.evyr.rads.data.Limits()
+                            )
+                        )
+                    })
+                }
+                is GeminiVision.Result.Failed ->
+                    MenuState.Failed(
+                        if (r.message == "No match found.") "Couldn't read any dishes. Try a closer, brighter photo of the menu."
+                        else r.message
+                    )
+                is GeminiVision.Result.ModelRetired ->
+                    MenuState.Failed("The AI model name is out of date. Set it to \"${r.suggested}\" in Setup.")
+            }
+        }
+    }
+
     private val _scanState = MutableStateFlow<ScanState>(ScanState.Idle)
     val scanState: StateFlow<ScanState> = _scanState.asStateFlow()
 

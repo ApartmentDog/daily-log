@@ -108,6 +108,10 @@ fun TodayScreen() {
     var activeMeal by remember { mutableStateOf(vm.mealSlotForNow()) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
+    var showMenuSource by remember { mutableStateOf(false) }
+    // True between tapping "Check a menu" and the photo coming back (or being cancelled).
+    var menuPending by remember { mutableStateOf(false) }
+    val menuState by vm.menuState.collectAsState()
 
     // Keep the ViewModel aware of where scans should land.
     vm.activeMealSlot = activeMeal
@@ -117,8 +121,11 @@ fun TodayScreen() {
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            readBytes(context, uri)?.let { vm.onPhotoCaptured(it) }
+            readBytes(context, uri)?.let {
+                if (menuPending) vm.onMenuCaptured(it) else vm.onPhotoCaptured(it)
+            }
         }
+        menuPending = false
     }
 
     // Camera preview capture -> bitmap -> jpeg bytes -> vision
@@ -128,8 +135,9 @@ fun TodayScreen() {
         if (bitmap != null) {
             val out = ByteArrayOutputStream()
             bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, out)
-            vm.onPhotoCaptured(out.toByteArray())
+            if (menuPending) vm.onMenuCaptured(out.toByteArray()) else vm.onPhotoCaptured(out.toByteArray())
         }
+        menuPending = false
     }
 
     val listState = rememberLazyListState()
@@ -249,6 +257,14 @@ fun TodayScreen() {
                         activeMeal = vm.mealSlotForNow()
                         vm.resetSearch()
                         showSearch = true
+                    },
+                    onCheckMenu = {
+                        if (!vm.aiEnabled()) {
+                            android.widget.Toast.makeText(
+                                context, "Menu check needs a Gemini key. Setup tab > AI food detection has steps to get one.",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        } else showMenuSource = true
                     }
                 )
                 AppTab.STATS -> TabStatsView(
@@ -294,6 +310,46 @@ fun TodayScreen() {
                 vm.addEntry(name, activeMeal, cal, fat, protein, carbs)
                 showAddDialog = false
             }
+        )
+    }
+
+    if (showMenuSource) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showMenuSource = false },
+            title = { Text("Check a menu") },
+            text = { Text("Take a photo of the menu, or pick one you already have. Nothing is logged.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showMenuSource = false
+                    menuPending = true
+                    runCatching { cameraLauncher.launch(null) }.onFailure {
+                        menuPending = false
+                        android.widget.Toast.makeText(
+                            context, "Couldn't open a camera app on this phone.", android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }) { Text("Take photo") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showMenuSource = false
+                    menuPending = true
+                    galleryLauncher.launch(
+                        androidx.activity.result.PickVisualMediaRequest(
+                            ActivityResultContracts.PickVisualMedia.ImageOnly
+                        )
+                    )
+                }) { Text("From gallery") }
+            }
+        )
+    }
+
+    if (menuState != TodayViewModel.MenuState.Idle) {
+        MenuCheckDialog(
+            state = menuState,
+            hasConditions = !(profile?.conditionSet().isNullOrEmpty()) || !(profile?.allergenSet().isNullOrEmpty()),
+            onPickDish = { vm.assess(it.food, activeMeal) },
+            onDismiss = { vm.clearMenu() }
         )
     }
 

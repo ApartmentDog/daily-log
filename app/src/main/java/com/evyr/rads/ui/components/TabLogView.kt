@@ -75,7 +75,8 @@ fun TabLogView(
     onAddToMeal: (String) -> Unit,
     onOpenProfile: () -> Unit,
     layout: HomeLayout,
-    onCheckFood: () -> Unit
+    onCheckFood: () -> Unit,
+    onCheckMenu: () -> Unit = {}
 ) {
     // activeMeal, entries and listState are still accepted so the call site
     // stays the same shape; the accordion shows every meal at once and
@@ -115,7 +116,8 @@ fun TabLogView(
             dayCarbs = dayCarbs,
             carbTarget = carbTarget,
             showStats = layout.showCalorieRing,
-            onCheckFood = if (layout.showCheckHero) onCheckFood else null
+            onCheckFood = if (layout.showCheckHero) onCheckFood else null,
+            onCheckMenu = if (layout.showCheckHero) onCheckMenu else null
         )
 
         Column(
@@ -172,7 +174,8 @@ private fun LogHero(
     dayCarbs: Double,
     carbTarget: Double,
     showStats: Boolean,
-    onCheckFood: (() -> Unit)?
+    onCheckFood: (() -> Unit)?,
+    onCheckMenu: (() -> Unit)? = null
 ) {
     Box(
         Modifier
@@ -254,7 +257,7 @@ private fun LogHero(
 
             if (onCheckFood != null) {
                 Spacer(Modifier.height(18.dp))
-                CheckFoodButton(onCheckFood)
+                CheckFoodButton(onCheckFood, onCheckMenu)
             }
 
             if (showStats) {
@@ -274,7 +277,8 @@ private fun LogHero(
 
 /** The safety-first home's main action: check a food before eating or logging it. */
 @Composable
-private fun CheckFoodButton(onClick: () -> Unit) {
+private fun CheckFoodButton(onClick: () -> Unit, onCheckMenu: (() -> Unit)?) {
+  Column {
     Column(
         Modifier
             .fillMaxWidth()
@@ -296,6 +300,19 @@ private fun CheckFoodButton(onClick: () -> Unit) {
             modifier = Modifier.padding(top = 2.dp)
         )
     }
+    if (onCheckMenu != null) {
+        Text(
+            "Eating out? Check a whole menu",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.White,
+            modifier = Modifier
+                .fillMaxWidth()
+                .accessibleClick("Check a whole menu from a photo", onClick = onCheckMenu)
+                .padding(top = 6.dp)
+        )
+    }
+  }
 }
 
 @Composable
