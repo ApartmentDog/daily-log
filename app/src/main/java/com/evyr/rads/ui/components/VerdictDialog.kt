@@ -159,13 +159,19 @@ fun VerdictDialog(
                         .accessibleClick("Get a lighter idea for next time", onClick = onSuggestSwaps),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        "\uD83D\uDCAD\uD83D\uDCA1  Lighter idea",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = onSurface,
-                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 16.dp)
-                    )
+                    Row(
+                        Modifier.padding(vertical = 8.dp, horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IdeaIcon(30.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "Lighter idea",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = onSurface
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
