@@ -117,9 +117,9 @@ fun MealAccordionCard(
     val total = entries.sumOf { it.calories }
     val mealFat = entries.sumOf { it.fatGrams }
     val overFat = entries.isNotEmpty() && mealFat >= fatWarnGrams
-    val mealWarnings = ConditionFlags.forMeal(entries, conditions)
+    val mealIssues = ConditionFlags.mealIssues(entries, conditions)
     val mealAllergyHits = entries.flatMap { AllergyChecker.check(it, allergens, customAllergens) }.distinct()
-    val hasAlert = overFat || mealWarnings.any { it.severity == Verdict.OVER_LIMIT } || mealAllergyHits.isNotEmpty()
+    val hasAlert = overFat || mealIssues.any { it.severity == Verdict.OVER_LIMIT } || mealAllergyHits.isNotEmpty()
 
     Column(
         Modifier
@@ -204,12 +204,12 @@ fun MealAccordionCard(
                         color = error
                     )
                 }
-                mealWarnings.forEach { w ->
+                mealIssues.forEach { issue ->
                     Text(
-                        "${w.condition.short}: ${w.details.joinToString("; ")}",
+                        issue.describe(simple),
                         fontSize = 12.sp,
-                        fontWeight = if (w.severity == Verdict.OVER_LIMIT) FontWeight.Bold else FontWeight.Normal,
-                        color = severityColor(w.severity)
+                        fontWeight = if (issue.severity == Verdict.OVER_LIMIT) FontWeight.Bold else FontWeight.Normal,
+                        color = severityColor(issue.severity)
                     )
                 }
                 if (mealAllergyHits.isNotEmpty()) {

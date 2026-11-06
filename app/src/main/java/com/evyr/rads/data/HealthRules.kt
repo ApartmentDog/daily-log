@@ -240,6 +240,46 @@ data class VerdictResult(
     val compoundSummary: String? = null
 )
 
+/** One condition's reaction to a meal total: how bad, and the limit it was held to. */
+data class IssueHit(val condition: Condition, val severity: Verdict, val limit: Double)
+
+/**
+ * One cause behind a meal's warnings (too big, too much sat fat, ...), with
+ * every condition it affects merged in, so "meal size" shows once instead of
+ * once per condition.
+ */
+data class MealIssue(
+    val label: String,
+    val unit: String,
+    val total: Double,
+    val severity: Verdict,
+    /** Worst first. */
+    val hits: List<IssueHit>,
+    /** Some items in the meal had no data for this nutrient. */
+    val partial: Boolean
+) {
+    private fun plainTitle(): String = when (label) {
+        "meal size" -> "Big meal"
+        "sat fat" -> "A lot of saturated fat"
+        "sugar" -> "A lot of sugar"
+        "carbs" -> "A lot of carbs"
+        "sodium" -> "A lot of sodium"
+        else -> label.replaceFirstChar { it.uppercase() }
+    }
+
+    /** One line. Simple: the cause and who it affects. Detailed: the numbers too. */
+    fun describe(simple: Boolean): String {
+        if (simple) return "${plainTitle()}: " + hits.joinToString(", ") { it.condition.short }
+        val u = if (unit == "kcal") " kcal" else unit
+        val parts = hits.joinToString(", ") {
+            val word = if (it.severity == Verdict.OVER_LIMIT) "over" else "near"
+            "$word for ${it.condition.short} (${fmt(it.limit)})"
+        }
+        return "${label.replaceFirstChar { it.uppercase() }} ${fmt(total)}$u: $parts" +
+            if (partial) " (some items lack data)" else ""
+    }
+}
+
 /** A per-meal amount rule for one condition. */
 private class AmountRule(
     val condition: Condition,
@@ -362,6 +402,41 @@ object ConditionFlags {
     fun irrelevantTriggers(entry: FoodLogEntry, conditions: Set<Condition>): Set<Trigger> {
         val relevant = conditions.flatMap { it.triggers.keys }.toSet()
         return triggersOf(entry) - relevant
+    }
+
+    /**
+     * The same amount checks as [forMeal], merged by cause. Rules that measure
+     * the same thing (e.g. meal size for GERD, hernia and gallbladder) become
+     * one issue naming every condition it affects. Worst first.
+     */
+    fun mealIssues(entries: List<FoodLogEntry>, conditions: Set<Condition>): List<MealIssue> {
+        if (conditions.isEmpty() || entries.isEmpty()) return emptyList()
+        return AMOUNT_RULES
+            .filter { it.condition in conditions }
+            .groupBy { it.label }
+            .mapNotNull { (label, rules) ->
+                val values = entries.map(rules.first().fromEntry)
+                if (values.none { it != null }) return@mapNotNull null
+                val total = values.sumOf { it ?: 0.0 }
+                val hits = rules.mapNotNull { r ->
+                    val level = when {
+                        total >= r.over -> Verdict.OVER_LIMIT
+                        total >= r.caution -> Verdict.CAUTION
+                        else -> null
+                    }
+                    level?.let { IssueHit(r.condition, it, r.over) }
+                }.sortedByDescending { it.severity.ordinal }
+                if (hits.isEmpty()) null
+                else MealIssue(
+                    label = label,
+                    unit = rules.first().unit,
+                    total = total,
+                    severity = hits.map { it.severity }.reduce { a, b -> worst(a, b) },
+                    hits = hits,
+                    partial = values.any { it == null }
+                )
+            }
+            .sortedByDescending { it.severity.ordinal }
     }
 
     /** Amount checks across a whole meal (sodium, sugar, carbs, sat fat, size). */
