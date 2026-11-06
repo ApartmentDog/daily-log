@@ -25,7 +25,8 @@ object GeminiVision {
 
     sealed class Result {
         data class Found(val foods: List<ScannedFood>) : Result()
-        data class Failed(val message: String) : Result()
+        /** [busy] means Gemini was overloaded or rate limited: worth retrying or switching models. */
+        data class Failed(val message: String, val busy: Boolean = false) : Result()
         /** The model name is dead; the API suggested this one instead. */
         data class ModelRetired(val suggested: String) : Result()
     }
@@ -180,22 +181,36 @@ Rules:
         allergens: List<String>
     ): SwapResult = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) return@withContext SwapResult.Failed("No API key set.")
+        val context = buildString {
+            append("Food: ").append(foodName).append('\n')
+            append("What came up: ").append(problems.joinToString("; ").ifBlank { "over the usual limits" }).append('\n')
+            append("Their conditions: ").append(conditions.joinToString(", ").ifBlank { "none listed" }).append('\n')
+            append("Allergens to avoid: ").append(allergens.joinToString(", ").ifBlank { "none listed" })
+        }
+        val payload = JSONObject().apply {
+            put("contents", JSONArray().put(
+                JSONObject().put("parts", JSONArray()
+                    .put(JSONObject().put("text", SWAP_PROMPT))
+                    .put(JSONObject().put("text", context))
+                )
+            ))
+            put("generationConfig", JSONObject().put("temperature", 0.4))
+        }
+        // Same plan as the photo calls: retry once, then try other models.
+        var last: SwapResult = SwapResult.Failed(BUSY_MESSAGE)
+        val attempts = listOf(model, model) + fallbackModels(apiKey, model)
+        for ((i, m) in attempts.withIndex()) {
+            if (i == 1) Thread.sleep(RETRY_PAUSE_MS)
+            val out = swapOnce(apiKey, m, payload)
+            if (out != null) return@withContext out
+            last = SwapResult.Failed(BUSY_MESSAGE)
+        }
+        last
+    }
+
+    /** One try. Null means Gemini was busy, so the caller should try again or switch models. */
+    private fun swapOnce(apiKey: String, model: String, payload: JSONObject): SwapResult? {
         try {
-            val context = buildString {
-                append("Food: ").append(foodName).append('\n')
-                append("What came up: ").append(problems.joinToString("; ").ifBlank { "over the usual limits" }).append('\n')
-                append("Their conditions: ").append(conditions.joinToString(", ").ifBlank { "none listed" }).append('\n')
-                append("Allergens to avoid: ").append(allergens.joinToString(", ").ifBlank { "none listed" })
-            }
-            val payload = JSONObject().apply {
-                put("contents", JSONArray().put(
-                    JSONObject().put("parts", JSONArray()
-                        .put(JSONObject().put("text", SWAP_PROMPT))
-                        .put(JSONObject().put("text", context))
-                    )
-                ))
-                put("generationConfig", JSONObject().put("temperature", 0.4))
-            }
             val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
             val req = Request.Builder()
                 .url(url)
@@ -204,18 +219,19 @@ Rules:
             client.newCall(req).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
+                    if (response.code in BUSY_CODES) return null
                     val msg = runCatching {
                         JSONObject(body).optJSONObject("error")?.optString("message")
                     }.getOrNull()
-                    return@withContext SwapResult.Failed(msg ?: "Request failed (${response.code}).")
+                    return SwapResult.Failed(msg ?: "Request failed (${response.code}).")
                 }
                 val text = runCatching {
                     JSONObject(body).getJSONArray("candidates").getJSONObject(0)
                         .getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text")
-                }.getOrNull() ?: return@withContext SwapResult.Failed("Unexpected response shape.")
+                }.getOrNull() ?: return SwapResult.Failed("Unexpected response shape.")
                 val arr = runCatching {
                     JSONArray(text.replace("```json", "").replace("```", "").trim())
-                }.getOrNull() ?: return@withContext SwapResult.Failed("Could not read the ideas.")
+                }.getOrNull() ?: return SwapResult.Failed("Could not read the ideas.")
                 val swaps = (0 until arr.length()).mapNotNull { i ->
                     val o = arr.optJSONObject(i) ?: return@mapNotNull null
                     val order = o.optString("order").trim()
@@ -226,10 +242,13 @@ Rules:
                     if (order.isBlank()) null
                     else Swap(where, order, o.optString("why").trim())
                 }
-                if (swaps.isEmpty()) SwapResult.Failed("No ideas for this one.") else SwapResult.Ideas(swaps.take(3))
+                return if (swaps.isEmpty()) SwapResult.Failed("No ideas for this one.")
+                else SwapResult.Ideas(swaps.take(3))
             }
+        } catch (e: java.net.SocketTimeoutException) {
+            return null
         } catch (e: Exception) {
-            SwapResult.Failed(e.message ?: "Request failed.")
+            return SwapResult.Failed(e.message ?: "Request failed.")
         }
     }
 
@@ -291,7 +310,60 @@ Rules:
         }
     }
 
+    private const val BUSY_MESSAGE = "Gemini is busy right now. Give it a minute and try again."
+    private const val RETRY_PAUSE_MS = 900L
+    // Overloaded, rate limited, or a hiccup on Google's side.
+    private val BUSY_CODES = setOf(429, 500, 502, 503, 504)
+
+    private var cachedFallbacks: List<String>? = null
+
+    /**
+     * Other Gemini models this key can use, newest first, for when the main one is
+     * busy. Asked of Google instead of hard-coded, because model names get retired.
+     * Only plain flash and flash-lite names: no previews, image, voice or live models.
+     */
+    private fun fallbackModels(apiKey: String, exclude: String): List<String> {
+        val cached = cachedFallbacks ?: runCatching {
+            val req = Request.Builder()
+                .url("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=$apiKey")
+                .build()
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return@use emptyList<String>()
+                val arr = JSONObject(resp.body?.string().orEmpty()).optJSONArray("models") ?: return@use emptyList<String>()
+                val pattern = Regex("^gemini-(\\d+(?:\\.\\d+)?)-flash(-lite)?$")
+                (0 until arr.length()).mapNotNull { i ->
+                    val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                    val name = o.optString("name").removePrefix("models/")
+                    val methods = o.optJSONArray("supportedGenerationMethods")
+                    val canGenerate = methods != null && (0 until methods.length()).any { methods.optString(it) == "generateContent" }
+                    val m = pattern.matchEntire(name)
+                    if (!canGenerate || m == null) null
+                    else Triple(name, m.groupValues[1].toDouble(), m.groupValues[2].isNotEmpty())
+                }
+                    .sortedWith(compareByDescending<Triple<String, Double, Boolean>> { it.second }.thenBy { it.third })
+                    .map { it.first }
+            }
+        }.getOrDefault(emptyList()).also { if (it.isNotEmpty()) cachedFallbacks = it }
+        return cached.filter { it != exclude }.take(2)
+    }
+
+    /** Calls Gemini; if it is busy, retries once, then tries other models before giving up. */
     private fun request(apiKey: String, model: String, payload: JSONObject): Result {
+        var result = requestOnce(apiKey, model, payload)
+        if (!(result is Result.Failed && result.busy)) return result
+        Thread.sleep(RETRY_PAUSE_MS)
+        result = requestOnce(apiKey, model, payload)
+        if (!(result is Result.Failed && result.busy)) return result
+        for (alt in fallbackModels(apiKey, model)) {
+            val r = requestOnce(apiKey, alt, payload)
+            // A retired-model hint from a backup is not the main model's problem; skip it.
+            if (r is Result.ModelRetired) continue
+            if (!(r is Result.Failed && r.busy)) return r
+        }
+        return Result.Failed(BUSY_MESSAGE, busy = true)
+    }
+
+    private fun requestOnce(apiKey: String, model: String, payload: JSONObject): Result {
         try {
             val url =
                 "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
@@ -321,7 +393,8 @@ Rules:
                     }
 
                     return Result.Failed(
-                        msg ?: "Request failed (${response.code})."
+                        msg ?: "Request failed (${response.code}).",
+                        busy = response.code in BUSY_CODES
                     )
                 }
 
@@ -376,6 +449,8 @@ Rules:
                 }
                 return Result.Found(foods)
             }
+        } catch (e: java.net.SocketTimeoutException) {
+            return Result.Failed("Gemini took too long to answer.", busy = true)
         } catch (e: Exception) {
             return Result.Failed(e.message ?: "Request failed.")
         }
