@@ -304,6 +304,67 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    sealed class SwapState {
+        object Idle : SwapState()
+        data class Working(val foodName: String) : SwapState()
+        data class Done(val foodName: String, val swaps: List<GeminiVision.Swap>) : SwapState()
+        data class Failed(val foodName: String, val message: String) : SwapState()
+    }
+
+    private val _swapState = MutableStateFlow<SwapState>(SwapState.Idle)
+    val swapState: StateFlow<SwapState> = _swapState.asStateFlow()
+
+    fun clearSwap() { _swapState.value = SwapState.Idle }
+
+    private fun runSwap(name: String, problems: List<String>, allergyLabels: List<String>) {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            val key = SecureStore.geminiKey(ctx)
+            if (key.isBlank()) {
+                _swapState.value = SwapState.Failed(name, "Lighter ideas need a Gemini key. Setup tab > AI food detection has steps to get one.")
+                return@launch
+            }
+            _swapState.value = SwapState.Working(name)
+            val profile = profileDao.get()
+            val result = GeminiVision.suggestSwaps(
+                apiKey = key,
+                model = SecureStore.geminiModel(ctx),
+                foodName = name,
+                problems = problems,
+                conditions = profile?.conditionSet()?.map { it.label } ?: emptyList(),
+                allergens = (profile?.allergenSet()?.map { it.label } ?: emptyList()) + allergyLabels
+            )
+            _swapState.value = when (result) {
+                is GeminiVision.SwapResult.Ideas -> SwapState.Done(name, result.swaps)
+                is GeminiVision.SwapResult.Failed -> SwapState.Failed(name, result.message)
+            }
+        }
+    }
+
+    /** From the verdict screen, before anything is logged. */
+    fun suggestSwapsFor(food: ScannedFood, verdict: VerdictResult) {
+        val problems = verdict.warnings.map { w -> w.condition.short + ": " + w.details.joinToString(", ") } +
+            verdict.allergyHits.map { "allergy match: ${it.label}" } +
+            verdict.reasons.take(1)
+        runSwap(food.name, problems, verdict.allergyHits.map { it.label })
+    }
+
+    /** From a logged entry that shows amber or red. */
+    fun suggestSwapsForEntry(entry: FoodLogEntry) {
+        viewModelScope.launch {
+            val profile = profileDao.get()
+            val conditions = profile?.conditionSet() ?: emptySet()
+            val problems = com.evyr.rads.data.ConditionFlags.forEntry(entry, conditions)
+                .map { w -> w.condition.short + ": " + w.details.joinToString(", ") }
+            val allergyLabels = com.evyr.rads.data.AllergyChecker.check(
+                entry,
+                profile?.allergenSet() ?: emptySet(),
+                com.evyr.rads.data.CustomAllergen.parseCsv(profile?.customAllergens)
+            ).map { it.label }
+            runSwap(entry.name, problems + allergyLabels.map { "allergy match: $it" }, allergyLabels)
+        }
+    }
+
     private val _scanState = MutableStateFlow<ScanState>(ScanState.Idle)
     val scanState: StateFlow<ScanState> = _scanState.asStateFlow()
 
@@ -641,11 +702,29 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         else d.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
     }
 
+    private val _removed = MutableSharedFlow<FoodLogEntry>(extraBufferCapacity = 8)
+    /** Emits each deleted entry so the screen can offer Undo. */
+    val removed: SharedFlow<FoodLogEntry> = _removed.asSharedFlow()
+
     fun deleteEntry(entry: FoodLogEntry) {
         viewModelScope.launch {
             if (_selectedEntryId.value == entry.id) _selectedEntryId.value = null
             foodDao.delete(entry)
+            _removed.emit(entry)
         }
+    }
+
+    /** Removes an entry without offering Undo (used by Undo of a quick log). */
+    fun deleteEntryQuietly(entry: FoodLogEntry) {
+        viewModelScope.launch {
+            if (_selectedEntryId.value == entry.id) _selectedEntryId.value = null
+            foodDao.delete(entry)
+        }
+    }
+
+    /** Undo for a delete: puts the same row back (same id, so it keeps its place). */
+    fun restoreEntry(entry: FoodLogEntry) {
+        viewModelScope.launch { foodDao.insert(entry) }
     }
 
     fun sync() {

@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,7 +30,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,7 +50,9 @@ fun VerdictDialog(
     isSafeFood: Boolean = false,
     onToggleSafe: () -> Unit = {},
     onDismiss: () -> Unit,
-    onConfirm: (ScannedFood) -> Unit
+    onConfirm: (ScannedFood) -> Unit,
+    simple: Boolean = false,
+    onSuggestSwaps: (() -> Unit)? = null
 ) {
     var name by remember { mutableStateOf(food.name) }
     var calories by remember { mutableStateOf(food.calories.toString()) }
@@ -60,6 +66,9 @@ fun VerdictDialog(
     val primary = MaterialTheme.colorScheme.primary
     val secondary = MaterialTheme.colorScheme.secondary
     val error = MaterialTheme.colorScheme.error
+
+    // Open by default only when the numbers need checking (AI estimate or missing data).
+    var showDetails by remember { mutableStateOf(food.source == "vision" || verdict.skipped.isNotEmpty()) }
 
     val state = lightState(
         verdict.verdict,
@@ -91,30 +100,70 @@ fun VerdictDialog(
             )
             Spacer(Modifier.height(12.dp))
 
-            // The traffic light and its word: the first thing read in the dialog.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            // The traffic light is the hero: big, centred, with one plain sentence.
+            // The numbers sit under "Show details".
+            val haptics = LocalHapticFeedback.current
+            LaunchedEffect(state.light) {
+                haptics.performHapticFeedback(
+                    if (state.light == Light.STOP) HapticFeedbackType.LongPress
+                    else HapticFeedbackType.TextHandleMove
+                )
+            }
+            Column(
+                Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                TrafficLight(state.light, dot = 26.dp)
-                Spacer(Modifier.width(16.dp))
+                TrafficLight(state.light, dot = 44.dp, animate = true)
+                Spacer(Modifier.height(12.dp))
                 Text(
                     stampText,
-                    fontSize = 24.sp,
+                    fontSize = if (simple) 30.sp else 26.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    plainSentence(food, verdict, state),
+                    fontSize = if (simple) 18.sp else 15.sp,
+                    color = onSurface,
+                    textAlign = TextAlign.Center
                 )
             }
             if (food.source == "vision") {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "AI estimate. The numbers come from a photo or description and may be off. " +
-                        "Check them in the fields below before you log.",
+                        "Check them under Details before you log.",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF9C6A12)
                 )
             }
+            if (onSuggestSwaps != null && state.light != Light.GO) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Lighter idea for next time",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = secondary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .accessibleClick("Get a lighter idea for next time", onClick = onSuggestSwaps),
+                    textAlign = TextAlign.Center
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                if (showDetails) "Hide details" else "Show details",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = dim,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .accessibleClick(if (showDetails) "Hide details" else "Show details") { showDetails = !showDetails },
+                textAlign = TextAlign.Center
+            )
+            if (showDetails) {
             Spacer(Modifier.height(8.dp))
             Text(
                 verdict.headline,
@@ -252,6 +301,7 @@ fun VerdictDialog(
                     color = faint
                 )
             }
+            }
 
           }
 
@@ -314,3 +364,22 @@ private fun EditRow(
 private fun num(v: Double): String =
     if (v % 1.0 == 0.0) v.toInt().toString() else String.format("%.1f", v)
 
+
+/** One plain sentence for the top of the dialog; the long version lives under Details. */
+private fun plainSentence(food: ScannedFood, verdict: VerdictResult, state: LightState): String {
+    verdict.allergyHits.firstOrNull()?.let {
+        return "This matches your ${it.label} allergy."
+    }
+    val worstWarning = verdict.warnings.maxByOrNull { it.severity.ordinal }
+    if (worstWarning != null && worstWarning.severity != Verdict.PASS) {
+        val detail = worstWarning.details.firstOrNull()?.replaceFirstChar { it.uppercase() }
+        return if (detail != null) "$detail. Flagged for ${worstWarning.condition.short}."
+        else "Flagged for ${worstWarning.condition.short}."
+    }
+    if (verdict.verdict != Verdict.PASS) {
+        return verdict.reasons.firstOrNull() ?: "Over your meal fat limit."
+    }
+    if (food.source == "vision") return "The numbers are an AI guess, so double-check before you rely on it."
+    if (verdict.skipped.isNotEmpty()) return "Some numbers were missing, so this is not a full check."
+    return if (state.light == Light.GO) "Nothing here goes over your limits." else state.word
+}

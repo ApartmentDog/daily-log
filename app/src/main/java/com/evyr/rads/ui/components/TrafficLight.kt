@@ -1,5 +1,8 @@
 package com.evyr.rads.ui.components
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +14,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.scale
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,7 +78,8 @@ fun TrafficLight(
     dot: Dp = 22.dp,
     horizontal: Boolean = false,
     showSymbol: Boolean = true,
-    description: String = light.spoken
+    description: String = light.spoken,
+    animate: Boolean = false
 ) {
     val housing = Color(0xFF2B2623)
     val shape = RoundedCornerShape(dot)
@@ -77,7 +88,7 @@ fun TrafficLight(
     val lamps: @Composable () -> Unit = {
         // Red on top (or left), green at the bottom (or right), like the real thing.
         listOf(Light.STOP, Light.CAUTION, Light.GO).forEach { l ->
-            Lamp(l, lit = l == light, size = dot, showSymbol = showSymbol)
+            Lamp(l, lit = l == light, size = dot, showSymbol = showSymbol, animate = animate)
         }
     }
     // Screen readers get the verdict as words; the lamps themselves are decoration.
@@ -100,10 +111,19 @@ fun TrafficLight(
 }
 
 @Composable
-private fun Lamp(light: Light, lit: Boolean, size: Dp, showSymbol: Boolean) {
+private fun Lamp(light: Light, lit: Boolean, size: Dp, showSymbol: Boolean, animate: Boolean) {
+    // The lit lamp pops in with a small spring when asked to; otherwise it just sits there.
+    var arrived by remember { mutableStateOf(!animate) }
+    LaunchedEffect(Unit) { arrived = true }
+    val pop by animateFloatAsState(
+        targetValue = if (lit && !arrived) 0.4f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "lamp"
+    )
     Box(
         Modifier
             .size(size)
+            .scale(pop)
             .clip(CircleShape)
             .background(if (lit) light.color else light.color.copy(alpha = 0.2f)),
         contentAlignment = Alignment.Center
@@ -117,4 +137,21 @@ private fun Lamp(light: Light, lit: Boolean, size: Dp, showSymbol: Boolean) {
             )
         }
     }
+}
+
+/**
+ * A waiting state in the app's own language: the three lamps light in turn.
+ * Pass a [label] so screen readers get words, not a flicker.
+ */
+@Composable
+fun LightsLoading(label: String, modifier: Modifier = Modifier, dot: Dp = 16.dp) {
+    var step by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(350)
+            step = (step + 1) % 3
+        }
+    }
+    val lit = listOf(Light.STOP, Light.CAUTION, Light.GO)[step]
+    TrafficLight(lit, modifier, dot = dot, horizontal = true, showSymbol = false, description = label)
 }

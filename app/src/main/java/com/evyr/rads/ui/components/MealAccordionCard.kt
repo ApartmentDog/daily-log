@@ -15,7 +15,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -111,6 +116,7 @@ fun MealAccordionCard(
     onToggle: () -> Unit,
     onSelectEntry: (FoodLogEntry) -> Unit,
     onDeleteEntry: (FoodLogEntry) -> Unit,
+    onSuggestSwaps: (FoodLogEntry) -> Unit = {},
     onAdd: () -> Unit
 ) {
     val tint = mealTint(slot)
@@ -244,6 +250,7 @@ fun MealAccordionCard(
                 }
 
                 entries.forEach { entry ->
+                  SwipeRow(onDelete = { onDeleteEntry(entry) }) {
                     FoodRow(
                         entry = entry,
                         tint = tint,
@@ -255,8 +262,10 @@ fun MealAccordionCard(
                         simple = simple,
                         onToggleSafe = { onToggleSafe(entry) },
                         onClick = { onSelectEntry(entry) },
-                        onDelete = { onDeleteEntry(entry) }
+                        onDelete = { onDeleteEntry(entry) },
+                        onSuggestSwaps = { onSuggestSwaps(entry) }
                     )
+                  }
                 }
 
                 val dash = tint.text.copy(alpha = 0.5f)
@@ -307,7 +316,8 @@ private fun FoodRow(
     simple: Boolean = false,
     onToggleSafe: () -> Unit,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onSuggestSwaps: () -> Unit = {}
 ) {
     val onSurface = MaterialTheme.colorScheme.onSurface
     val error = MaterialTheme.colorScheme.error
@@ -346,7 +356,7 @@ private fun FoodRow(
             Column(Modifier.weight(1f)) {
                 Text(
                     entry.name,
-                    fontSize = 14.sp,
+                    fontSize = if (simple) 17.sp else 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = if (worst == Verdict.OVER_LIMIT) error else onSurface
                 )
@@ -361,7 +371,7 @@ private fun FoodRow(
                                 severityColor(Verdict.CAUTION)
                         else -> "Okay" to onSurface.copy(alpha = 0.72f)
                     }
-                    Text(word, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = tone)
+                    Text(word, fontSize = if (simple) 15.sp else 12.sp, fontWeight = FontWeight.Medium, color = tone)
                 } else {
                     Text(
                         if (isSafe) "$sub \u00B7 Safe" else sub,
@@ -425,8 +435,47 @@ private fun FoodRow(
                     modifier = Modifier.padding(vertical = 2.dp)
                 )
             }
+            if (worst == Verdict.CAUTION || worst == Verdict.OVER_LIMIT) {
+                AppAction("Lighter idea for next time", onSuggestSwaps)
+            }
             AppAction(if (isSafe) "Remove from safe foods" else "Mark as safe food", onToggleSafe)
             AppAction("Delete entry", onDelete, warn = true)
         }
     }
+}
+
+/** Swipe a logged food left to delete it; Undo appears at the bottom of the screen. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeRow(onDelete: () -> Unit, content: @Composable () -> Unit) {
+    val state = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else false
+        }
+    )
+    SwipeToDismissBox(
+        state = state,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.error),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Text(
+                    "Delete",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(end = 16.dp)
+                )
+            }
+        },
+        content = { content() }
+    )
 }

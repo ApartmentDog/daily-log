@@ -136,6 +136,94 @@ Rules:
 - If the photo is not a menu or you cannot read it, return [].
 """
 
+    data class Swap(val where: String, val order: String, val why: String)
+
+    sealed class SwapResult {
+        data class Ideas(val swaps: List<Swap>) : SwapResult()
+        data class Failed(val message: String) : SwapResult()
+    }
+
+    private const val SWAP_PROMPT = """
+You help someone who tracks food for a health condition. They ate (or are
+about to eat) something that came up as a caution or a skip. Suggest up to 3
+lighter things to try NEXT TIME instead.
+
+Respond with ONLY a JSON array, no markdown fences, no commentary:
+[ { "where": "restaurant, chain or store, or empty if it applies anywhere",
+    "order": "the specific item or the specific change to ask for",
+    "why": "one short sentence tying it to the problem listed" } ]
+
+Rules:
+- If the food looks like it came from a particular restaurant or brand, give
+  at least one idea at that same place (a different item, or a change like
+  grilled instead of fried, sauce on the side, smaller size, no cheese).
+- Other ideas can be a similar dish elsewhere that is lighter on the problem.
+- Never suggest anything containing the listed allergens.
+- Do not quote exact calorie or nutrient numbers. Menus change; say "ask for
+  nutrition info" if numbers matter.
+- No medical claims. Plain, short wording.
+- If you cannot tell what the food is, return [].
+"""
+
+    /** Lighter ideas for something that came up amber or red. Not medical advice. */
+    suspend fun suggestSwaps(
+        apiKey: String,
+        model: String,
+        foodName: String,
+        problems: List<String>,
+        conditions: List<String>,
+        allergens: List<String>
+    ): SwapResult = withContext(Dispatchers.IO) {
+        if (apiKey.isBlank()) return@withContext SwapResult.Failed("No API key set.")
+        try {
+            val context = buildString {
+                append("Food: ").append(foodName).append('\n')
+                append("What came up: ").append(problems.joinToString("; ").ifBlank { "over the usual limits" }).append('\n')
+                append("Their conditions: ").append(conditions.joinToString(", ").ifBlank { "none listed" }).append('\n')
+                append("Allergens to avoid: ").append(allergens.joinToString(", ").ifBlank { "none listed" })
+            }
+            val payload = JSONObject().apply {
+                put("contents", JSONArray().put(
+                    JSONObject().put("parts", JSONArray()
+                        .put(JSONObject().put("text", SWAP_PROMPT))
+                        .put(JSONObject().put("text", context))
+                    )
+                ))
+                put("generationConfig", JSONObject().put("temperature", 0.4))
+            }
+            val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
+            val req = Request.Builder()
+                .url(url)
+                .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            client.newCall(req).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    val msg = runCatching {
+                        JSONObject(body).optJSONObject("error")?.optString("message")
+                    }.getOrNull()
+                    return@withContext SwapResult.Failed(msg ?: "Request failed (${response.code}).")
+                }
+                val text = runCatching {
+                    JSONObject(body).getJSONArray("candidates").getJSONObject(0)
+                        .getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text")
+                }.getOrNull() ?: return@withContext SwapResult.Failed("Unexpected response shape.")
+                val arr = runCatching {
+                    JSONArray(text.replace("```json", "").replace("```", "").trim())
+                }.getOrNull() ?: return@withContext SwapResult.Failed("Could not read the ideas.")
+                val swaps = (0 until arr.length()).mapNotNull { i ->
+                    val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                    val order = o.optString("order").trim()
+                    if (order.isBlank()) null
+                    else Swap(o.optString("where").trim(), order, o.optString("why").trim())
+                }
+                if (swaps.isEmpty()) SwapResult.Failed("No ideas for this one.") else SwapResult.Ideas(swaps.take(3))
+            }
+        } catch (e: Exception) {
+            SwapResult.Failed(e.message ?: "Request failed.")
+        }
+    }
+
     /** Text fallback for items neither database carries. */
     suspend fun estimateFromText(
         apiKey: String,

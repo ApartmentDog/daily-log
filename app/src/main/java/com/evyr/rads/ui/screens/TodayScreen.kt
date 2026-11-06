@@ -112,6 +112,7 @@ fun TodayScreen() {
     // True between tapping "Check a menu" and the photo coming back (or being cancelled).
     var menuPending by remember { mutableStateOf(false) }
     val menuState by vm.menuState.collectAsState()
+    val swapState by vm.swapState.collectAsState()
 
     // Keep the ViewModel aware of where scans should land.
     vm.activeMealSlot = activeMeal
@@ -173,7 +174,17 @@ fun TodayScreen() {
                 actionLabel = "Undo",
                 duration = SnackbarDuration.Short
             )
-            if (result == SnackbarResult.ActionPerformed) vm.deleteEntry(entry)
+            if (result == SnackbarResult.ActionPerformed) vm.deleteEntryQuietly(entry)
+        }
+    }
+    LaunchedEffect(Unit) {
+        vm.removed.collect { entry ->
+            val result = snackbar.showSnackbar(
+                message = "Removed ${entry.name}",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) vm.restoreEntry(entry)
         }
     }
 
@@ -246,6 +257,7 @@ fun TodayScreen() {
                     onSelectMeal = { activeMeal = it },
                     onSelectEntry = { vm.selectEntry(it.id) },
                     onDeleteEntry = { vm.deleteEntry(it) },
+                    onSuggestSwaps = { vm.suggestSwapsForEntry(it) },
                     onAddToMeal = { slot ->
                         activeMeal = slot
                         vm.resetSearch()
@@ -344,6 +356,10 @@ fun TodayScreen() {
         )
     }
 
+    if (swapState != TodayViewModel.SwapState.Idle) {
+        SwapDialog(state = swapState, onDismiss = { vm.clearSwap() })
+    }
+
     if (menuState != TodayViewModel.MenuState.Idle) {
         MenuCheckDialog(
             state = menuState,
@@ -439,7 +455,9 @@ fun TodayScreen() {
                 isSafeFood = com.evyr.rads.data.local.SafeFood.keyFor(s.food.name) in safeKeys,
                 onToggleSafe = { vm.toggleSafe(s.food) },
                 onDismiss = { vm.clearScan() },
-                onConfirm = { vm.commitScanned(it, activeMeal) }
+                onConfirm = { vm.commitScanned(it, activeMeal) },
+                simple = (profile ?: com.evyr.rads.data.local.UserProfile()).homeLayout().simple,
+                onSuggestSwaps = { vm.suggestSwapsFor(s.food, s.verdict) }
             )
         else -> Unit
     }

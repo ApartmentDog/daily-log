@@ -38,7 +38,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evyr.rads.data.AllergyChecker
 import com.evyr.rads.data.Condition
+import com.evyr.rads.data.ConditionFlags
 import com.evyr.rads.data.Verdict
 import com.evyr.rads.data.local.HomeLayout
 import com.evyr.rads.data.local.FoodLogEntry
@@ -72,6 +74,7 @@ fun TabLogView(
     onSelectMeal: (String) -> Unit,
     onSelectEntry: (FoodLogEntry) -> Unit,
     onDeleteEntry: (FoodLogEntry) -> Unit,
+    onSuggestSwaps: (FoodLogEntry) -> Unit = {},
     onAddToMeal: (String) -> Unit,
     onOpenProfile: () -> Unit,
     layout: HomeLayout,
@@ -120,6 +123,24 @@ fun TabLogView(
             onCheckMenu = if (layout.showCheckHero) onCheckMenu else null
         )
 
+        if (dayEntries.isEmpty()) {
+            if (isToday) EmptyDay(showCheck = layout.showCheckHero, simple = layout.simple, onCheckFood = onCheckFood)
+        } else if (layout.showCheckHero) {
+            val flagged = flaggedMeals(
+                dayEntries, mealSlots, conditions, limits, allergens, customAllergens, fatWarnGrams
+            )
+            DaySummary(
+                logged = mealSlots.count { s -> dayEntries.any { it.mealSlot == s } },
+                flagged = flagged,
+                simple = layout.simple,
+                onShow = { f ->
+                    expanded.value = expanded.value + f.slot
+                    onSelectMeal(f.slot)
+                    onSelectEntry(f.entry)
+                }
+            )
+        }
+
         Column(
             Modifier
                 .fillMaxWidth()
@@ -148,6 +169,7 @@ fun TabLogView(
                     },
                     onSelectEntry = onSelectEntry,
                     onDeleteEntry = onDeleteEntry,
+                    onSuggestSwaps = onSuggestSwaps,
                     onAdd = { onAddToMeal(slot) }
                 )
             }
@@ -417,3 +439,102 @@ internal fun severityColor(v: Verdict) = when (v) {
 
 internal fun trim(v: Double): String =
     if (v % 1.0 == 0.0) v.toInt().toString() else String.format("%.1f", v)
+
+private data class FlaggedMeal(val slot: String, val entry: FoodLogEntry, val cause: String)
+
+/** Meals today that trip an allergy, a condition, a per-meal limit or the fat limit. */
+private fun flaggedMeals(
+    dayEntries: List<FoodLogEntry>,
+    mealSlots: List<String>,
+    conditions: Set<Condition>,
+    limits: com.evyr.rads.data.Limits,
+    allergens: Set<com.evyr.rads.data.Allergen>,
+    customAllergens: List<com.evyr.rads.data.CustomAllergen>,
+    fatWarnGrams: Double
+): List<FlaggedMeal> = mealSlots.mapNotNull { slot ->
+    val es = dayEntries.filter { it.mealSlot == slot }
+    if (es.isEmpty()) return@mapNotNull null
+    val allergic = es.firstOrNull { AllergyChecker.check(it, allergens, customAllergens).isNotEmpty() }
+    if (allergic != null) return@mapNotNull FlaggedMeal(slot, allergic, "an allergy match")
+    val hit = es.firstOrNull { e ->
+        ConditionFlags.forEntry(e, conditions).any { it.severity != Verdict.PASS }
+    }
+    if (hit != null) {
+        val c = ConditionFlags.forEntry(hit, conditions).first { it.severity != Verdict.PASS }.condition.short
+        return@mapNotNull FlaggedMeal(slot, hit, c)
+    }
+    val issue = ConditionFlags.mealIssues(es, conditions, limits).firstOrNull()
+    if (issue != null) return@mapNotNull FlaggedMeal(slot, es.first(), issue.label)
+    if (es.sumOf { it.fatGrams } >= fatWarnGrams) return@mapNotNull FlaggedMeal(slot, es.first(), "fat")
+    null
+}
+
+/** One line for the whole day, so nobody has to open every card to find the problem. */
+@Composable
+private fun DaySummary(
+    logged: Int,
+    flagged: List<FlaggedMeal>,
+    simple: Boolean,
+    onShow: (FlaggedMeal) -> Unit
+) {
+    val meals = if (logged == 1) "1 meal logged" else "$logged meals logged"
+    val text = when {
+        flagged.isEmpty() -> "$meals, none flagged"
+        flagged.size == 1 -> "$meals, 1 flagged for ${flagged.first().cause}"
+        else -> "$meals, ${flagged.size} flagged"
+    }
+    val first = flagged.firstOrNull()
+    Text(
+        text,
+        fontSize = if (simple) 17.sp else 14.sp,
+        fontWeight = FontWeight.Medium,
+        color = if (first != null) severityColor(Verdict.CAUTION) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .then(
+                if (first != null) Modifier.accessibleClick("$text. Show the first flagged meal") { onShow(first) }
+                else Modifier
+            )
+            .padding(top = 12.dp)
+    )
+}
+
+/** First day, or a day with nothing logged: one clear next step instead of blank cards. */
+@Composable
+private fun EmptyDay(showCheck: Boolean, simple: Boolean, onCheckFood: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = 14.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .padding(18.dp)
+    ) {
+        Text(
+            if (showCheck) "Check your first meal" else "Nothing logged yet",
+            fontSize = if (simple) 20.sp else 17.sp,
+            fontWeight = FontWeight.Bold,
+            color = Terracotta
+        )
+        Text(
+            if (showCheck) "Scan a barcode, snap a plate, or search for a food. You will see a traffic light before you eat or log it."
+            else "Add what you eat in a meal card below.",
+            fontSize = if (simple) 16.sp else 13.sp,
+            color = Terracotta.copy(alpha = 0.8f),
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        if (showCheck) {
+            Text(
+                "Check a food",
+                fontSize = if (simple) 17.sp else 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Terracotta,
+                modifier = Modifier
+                    .padding(top = 10.dp)
+                    .accessibleClick("Check a food", onClick = onCheckFood)
+            )
+        }
+    }
+}
