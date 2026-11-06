@@ -22,6 +22,12 @@ val Terracotta = Color(0xFFD4704A)       // --accent
 val TerracottaSoft = Color(0x24D4704A)   // --accent-soft
 val WarnAmber = Color(0xFFD4932A)        // --warn
 val WarnAmberSoft = Color(0x21D4932A)    // --warn-soft
+// Darker twins for TEXT on the cream/white surfaces (4.5:1 or better there).
+// The brighter colours above stay for fills, lamps and large shapes.
+val TerracottaText = Color(0xFFA5532F)
+val RustText = Color(0xFFAD4848)
+val SageText = Color(0xFF3F7249)
+val CautionText = Color(0xFF8A5C0E)
 val WarnRust = Color(0xFFD95F5F)         // --danger
 val WarnRustSoft = Color(0x21D95F5F)     // --danger-soft
 val SageAccent = Color(0xFF6AB87A)       // --green

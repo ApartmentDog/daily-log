@@ -45,6 +45,8 @@ import com.evyr.rads.data.Verdict
 import com.evyr.rads.data.local.HomeLayout
 import com.evyr.rads.data.local.FoodLogEntry
 import com.evyr.rads.ui.theme.Terracotta
+import com.evyr.rads.ui.theme.TerracottaText
+import com.evyr.rads.ui.theme.CautionText
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -313,12 +315,12 @@ private fun CheckFoodButton(onClick: () -> Unit, onCheckMenu: (() -> Unit)?) {
             "Can I eat this?",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = Terracotta
+            color = TerracottaText
         )
         Text(
             "Scan a barcode, snap a menu or plate, or search",
             fontSize = 13.sp,
-            color = Terracotta.copy(alpha = 0.75f),
+            color = TerracottaText,
             modifier = Modifier.padding(top = 2.dp)
         )
     }
@@ -433,7 +435,7 @@ private fun MacroBarRow(emoji: String, label: String, value: Double, target: Dou
 internal fun severityColor(v: Verdict) = when (v) {
     Verdict.OVER_LIMIT -> MaterialTheme.colorScheme.error
     // Darker amber than the lamp itself: the lamp colour is too pale to read as text on cream.
-    Verdict.CAUTION -> Color(0xFF9C6A12)
+    Verdict.CAUTION -> CautionText
     Verdict.PASS -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f)
 }
 
@@ -516,13 +518,13 @@ private fun EmptyDay(showCheck: Boolean, simple: Boolean, onCheckFood: () -> Uni
             if (showCheck) "Check your first meal" else "Nothing logged yet",
             fontSize = if (simple) 20.sp else 17.sp,
             fontWeight = FontWeight.Bold,
-            color = Terracotta
+            color = TerracottaText
         )
         Text(
             if (showCheck) "Scan a barcode, snap a plate, or search for a food. You will see a traffic light before you eat or log it."
             else "Add what you eat in a meal card below.",
             fontSize = if (simple) 16.sp else 13.sp,
-            color = Terracotta.copy(alpha = 0.8f),
+            color = TerracottaText,
             modifier = Modifier.padding(top = 4.dp)
         )
         if (showCheck) {
@@ -530,7 +532,7 @@ private fun EmptyDay(showCheck: Boolean, simple: Boolean, onCheckFood: () -> Uni
                 "Check a food",
                 fontSize = if (simple) 17.sp else 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = Terracotta,
+                color = TerracottaText,
                 modifier = Modifier
                     .padding(top = 10.dp)
                     .accessibleClick("Check a food", onClick = onCheckFood)

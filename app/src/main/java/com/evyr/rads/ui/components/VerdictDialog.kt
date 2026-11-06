@@ -136,7 +136,7 @@ fun VerdictDialog(
                         "Check them under Details before you log.",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF9C6A12)
+                    color = com.evyr.rads.ui.theme.CautionText
                 )
             }
             if (onSuggestSwaps != null && state.light != Light.GO) {

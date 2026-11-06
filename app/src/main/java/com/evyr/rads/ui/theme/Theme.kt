@@ -10,11 +10,11 @@ import androidx.compose.runtime.Composable
 // invent one, RADS renders this single light palette regardless of system
 // theme, matching the HTML precisely instead of drifting from it.
 private val LightScheme = lightColorScheme(
-    primary = Terracotta,
+    primary = TerracottaText,
     onPrimary = CreamBg,
-    primaryContainer = Terracotta,
+    primaryContainer = TerracottaText,
     onPrimaryContainer = CreamBg,
-    secondary = SageAccent,
+    secondary = SageText,
     onSecondary = CreamBg,
     secondaryContainer = SageAccentSoft,
     onSecondaryContainer = ClayText,
@@ -24,7 +24,7 @@ private val LightScheme = lightColorScheme(
     onSurface = ClayText,
     surfaceVariant = CreamCard2,
     onSurfaceVariant = ClayTextSoft,
-    error = WarnRust,
+    error = RustText,
     onError = CreamBg,
     outline = CreamCardBorder,
 )
