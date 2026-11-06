@@ -18,13 +18,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.evyr.rads.ui.TodayViewModel.SwapState
+import com.evyr.rads.ui.theme.CreamBg
 
 /**
  * "Lighter idea for next time": up to three short, separate cards. Each is
@@ -79,7 +79,7 @@ fun SwapDialog(state: SwapState, onDismiss: () -> Unit) {
                         Column(
                             Modifier
                                 .fillMaxWidth()
-                                .background(Color.White, RoundedCornerShape(12.dp))
+                                .background(CreamBg, RoundedCornerShape(12.dp))
                                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
                                 .padding(14.dp)
                         ) {

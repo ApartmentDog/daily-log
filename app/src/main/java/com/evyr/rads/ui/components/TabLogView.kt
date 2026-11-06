@@ -511,7 +511,7 @@ private fun EmptyDay(showCheck: Boolean, simple: Boolean, onCheckFood: () -> Uni
             .padding(horizontal = 16.dp)
             .padding(top = 14.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
+            .background(com.evyr.rads.ui.theme.CreamBg)
             .padding(18.dp)
     ) {
         Text(
