@@ -48,12 +48,15 @@ private data class MealTint(
     val text: Color
 )
 
-private fun mealTint(slot: String): MealTint = when (slot) {
-    "breakfast" -> MealTint(MealBreakfastBg, MealBreakfastBorder, MealBreakfastChip, MealBreakfastText)
-    "lunch" -> MealTint(MealLunchBg, MealLunchBorder, MealLunchChip, MealLunchText)
-    "dinner" -> MealTint(MealDinnerBg, MealDinnerBorder, MealDinnerChip, MealDinnerText)
-    else -> MealTint(MealSnackBg, MealSnackBorder, MealSnackChip, MealSnackText)
-}
+/**
+ * One neutral palette for every meal. Meals are told apart by their icon and
+ * label; red, amber and green belong to the traffic light alone, so a tinted
+ * card can never be mistaken for a verdict. The old per-meal colour families
+ * (MealBreakfast*, MealLunch*, ...) are still in the theme if this is reverted.
+ */
+@Suppress("UNUSED_PARAMETER")
+private fun mealTint(slot: String): MealTint =
+    MealTint(CreamCard, CreamCardBorder, CreamCard2, ClayTextSoft)
 
 private fun mealIcon(slot: String): String = when (slot) {
     "breakfast" -> "\uD83C\uDF73" // cooking (pan + egg)

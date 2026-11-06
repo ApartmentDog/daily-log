@@ -392,7 +392,8 @@ private fun MacroBarRow(emoji: String, label: String, value: Double, target: Dou
 @Composable
 internal fun severityColor(v: Verdict) = when (v) {
     Verdict.OVER_LIMIT -> MaterialTheme.colorScheme.error
-    Verdict.CAUTION -> MaterialTheme.colorScheme.primary
+    // Darker amber than the lamp itself: the lamp colour is too pale to read as text on cream.
+    Verdict.CAUTION -> Color(0xFF9C6A12)
     Verdict.PASS -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
 }
 
