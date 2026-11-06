@@ -272,8 +272,8 @@ data class MealIssue(
         if (simple) return "${plainTitle()}: " + hits.joinToString(", ") { it.condition.short }
         val u = if (unit == "kcal") " kcal" else unit
         val parts = hits.joinToString(", ") {
-            val word = if (it.severity == Verdict.OVER_LIMIT) "over" else "near"
-            "$word for ${it.condition.short} (${fmt(it.limit)})"
+            if (it.severity == Verdict.OVER_LIMIT) "over the ${it.condition.short} limit (${fmt(it.limit)})"
+            else "${it.condition.short} limit is ${fmt(it.limit)}"
         }
         return "${label.replaceFirstChar { it.uppercase() }} ${fmt(total)}$u: $parts" +
             if (partial) " (some items lack data)" else ""
@@ -383,10 +383,12 @@ private fun FlagCollector.amounts(
         val partial = values.any { it == null }
         add(
             rule.condition, level,
-            "${rule.label} ${fmt(total)}${rule.unit} this meal (" +
-                (if (level == Verdict.OVER_LIMIT) "over" else "nearing") +
-                " the ~${fmt(rule.over)}${rule.unit} limit)" +
-                if (partial) ", some items lack data" else ""
+            // Plain numbers: what it is, and what your limit is. The light says how much it matters.
+            (if (level == Verdict.OVER_LIMIT)
+                "${rule.label} ${fmt(total)}${rule.unit}, over your ${fmt(rule.over)}${rule.unit} limit"
+            else
+                "${rule.label} ${fmt(total)}${rule.unit}, limit is ${fmt(rule.over)}${rule.unit}") +
+                if (partial) " (some items lack data)" else ""
         )
     }
 }
@@ -492,7 +494,11 @@ object VerdictRules {
             projectedFat >= fatLimitPerMeal * 0.7 -> Verdict.CAUTION
             else -> Verdict.PASS
         }
-        reasons += "Meal fat would reach ${fmt(projectedFat)}g of ${fmt(fatLimitPerMeal)}g."
+        reasons += when (fatVerdict) {
+            Verdict.OVER_LIMIT -> "Fat ${fmt(projectedFat)}g, over your ${fmt(fatLimitPerMeal)}g meal limit."
+            Verdict.CAUTION -> "Fat ${fmt(projectedFat)}g. Your meal limit is ${fmt(fatLimitPerMeal)}g."
+            else -> "Fat ${fmt(projectedFat)}g of your ${fmt(fatLimitPerMeal)}g meal limit."
+        }
         if (fatAlready > 0) reasons += "${fmt(fatAlready)}g already logged this meal."
         if (food.calories >= 700) reasons += "Large single item at ${food.calories} kcal."
         food.servingNote?.let { reasons += it }

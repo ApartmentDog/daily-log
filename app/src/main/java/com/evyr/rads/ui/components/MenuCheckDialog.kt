@@ -247,10 +247,21 @@ private fun DishRow(dish: MenuDish, st: LightState, onPick: (MenuDish) -> Unit) 
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TrafficLight(st.light, dot = 14.dp, horizontal = true, description = st.word)
+        // Too small for a symbol to read, so the word under the name carries the meaning.
+        TrafficLight(st.light, dot = 16.dp, horizontal = true, showSymbol = false, description = st.word)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(dish.food.name, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(
+                st.word,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = when (st.light) {
+                    Light.STOP -> com.evyr.rads.ui.theme.RustText
+                    Light.CAUTION -> com.evyr.rads.ui.theme.CautionText
+                    Light.GO -> com.evyr.rads.ui.theme.SageText
+                }
+            )
             Text(
                 if (st.light == Light.GO)
                     "${dish.food.calories} kcal, ${dish.food.fatGrams.toInt()} g fat"

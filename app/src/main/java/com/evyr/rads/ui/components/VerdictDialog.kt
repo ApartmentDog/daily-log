@@ -392,8 +392,11 @@ internal fun plainSentence(food: ScannedFood, verdict: VerdictResult, state: Lig
     verdict.allergyHits.firstOrNull()?.let {
         return "This matches your ${it.label} allergy."
     }
-    val worstWarning = verdict.warnings.maxByOrNull { it.severity.ordinal }
-    if (worstWarning != null && worstWarning.severity != Verdict.PASS) {
+    // The sentence has to explain the light. If the light is red because of the meal's
+    // total fat but the worst condition flag is only amber, say the fat, not the flag.
+    val worstWarning = verdict.warnings.filter { it.severity != Verdict.PASS }
+        .maxByOrNull { it.severity.ordinal }
+    if (worstWarning != null && worstWarning.severity == verdict.verdict) {
         val detail = worstWarning.details.firstOrNull()?.replaceFirstChar { it.uppercase() }
         val cond = worstWarning.condition.label.lowercase()
         return if (detail != null) "$detail. Flagged for $cond."
