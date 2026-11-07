@@ -224,32 +224,38 @@ private fun LogHero(
                 .background(Color.White.copy(alpha = 0.08f))
         )
 
-        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 26.dp)) {
+        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 18.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Row(
                     Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = 0.22f))
-                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                        .background(Color.White.copy(alpha = 0.28f))
+                        .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         "\u2039",
-                        fontSize = 18.sp,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
                         color = Color.White,
-                        modifier = Modifier.accessibleClick("Previous day") { onPreviousDay() }
+                        modifier = Modifier
+                            .accessibleClick("Previous day") { onPreviousDay() }
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
                     )
                     Text(
                         viewDate.format(DateTimeFormatter.ofPattern("EEE d MMM")),
-                        fontSize = 14.sp,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.White
                     )
                     Text(
                         "\u203A",
-                        fontSize = 18.sp,
-                        color = Color.White.copy(alpha = if (isToday) 0.35f else 1f),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White.copy(alpha = if (isToday) 0.4f else 1f),
                         modifier = Modifier
                             .accessibleClick("Next day", enabled = !isToday) { onNextDay() }
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
                     )
                 }
                 if (!isToday) {
@@ -280,12 +286,12 @@ private fun LogHero(
             }
 
             if (onCheckFood != null) {
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(14.dp))
                 CheckFoodButton(onCheckFood, onCheckMenu)
             }
 
             if (showStats) {
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(14.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CalorieRing(eaten = dayCals, target = calorieTarget)
                     Spacer(Modifier.width(18.dp))
@@ -325,15 +331,19 @@ private fun CheckFoodButton(onClick: () -> Unit, onCheckMenu: (() -> Unit)?) {
         )
     }
     if (onCheckMenu != null) {
+        Spacer(Modifier.height(8.dp))
         Text(
-            "Eating out? Menu mode",
+            "Eating out? Photograph a menu",
             fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.SemiBold,
             color = Color.White,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White.copy(alpha = 0.22f))
                 .accessibleClick("Open menu mode: photograph a menu", onClick = onCheckMenu)
-                .padding(top = 6.dp)
+                .padding(vertical = 11.dp)
         )
     }
   }
@@ -342,8 +352,8 @@ private fun CheckFoodButton(onClick: () -> Unit, onCheckMenu: (() -> Unit)?) {
 @Composable
 private fun CalorieRing(eaten: Int, target: Int) {
     val pct = if (target > 0) (eaten.toFloat() / target).coerceIn(0f, 1f) else 0f
-    Box(Modifier.size(112.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(112.dp)) {
+    Box(Modifier.size(100.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(100.dp)) {
             val stroke = 11.dp.toPx()
             val diameter = size.minDimension - stroke
             val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
@@ -371,16 +381,15 @@ private fun CalorieRing(eaten: Int, target: Int) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 "$eaten",
-                fontSize = 30.sp,
+                fontSize = 28.sp,
                 fontFamily = FontFamily.Serif,
                 color = Color.White
             )
             Text(
-                "EATEN",
-                fontSize = 10.sp,
+                if (target > 0) "of $target cal" else "cal",
+                fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.5.sp,
-                color = Color.White.copy(alpha = 0.9f)
+                color = Color.White.copy(alpha = 0.95f)
             )
         }
     }
@@ -486,20 +495,32 @@ private fun DaySummary(
         else -> "$meals, ${flagged.size} flagged"
     }
     val first = flagged.firstOrNull()
-    Text(
-        text,
-        fontSize = if (simple) 17.sp else 14.sp,
-        fontWeight = FontWeight.Medium,
-        color = if (first != null) severityColor(Verdict.CAUTION) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-        modifier = Modifier
+    val tone = if (first != null) severityColor(Verdict.CAUTION) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+    Row(
+        Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
+            .padding(top = 12.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(tone.copy(alpha = 0.10f))
             .then(
                 if (first != null) Modifier.accessibleClick("$text. Show the first flagged meal") { onShow(first) }
                 else Modifier
             )
-            .padding(top = 12.dp)
-    )
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text,
+            fontSize = if (simple) 17.sp else 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = tone,
+            modifier = Modifier.weight(1f)
+        )
+        if (first != null) {
+            Text("Show \u203A", fontSize = if (simple) 15.sp else 13.sp, fontWeight = FontWeight.SemiBold, color = tone)
+        }
+    }
 }
 
 /** First day, or a day with nothing logged: one clear next step instead of blank cards. */
