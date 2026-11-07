@@ -19,14 +19,14 @@ val ClayText = Color(0xFF2D1F10)         // --text
 val ClayTextSoft = Color(0xFF6B4F35)     // --text-soft
 val ClayTextDim = Color(0xFF9A7A5A)      // --muted
 // Accent family moved off orange/red: those hues belong to the traffic light and
-// warnings. The names stay (Terracotta*) so call sites don't churn; the values are indigo.
-val Terracotta = Color(0xFF4F5FB3)       // accent (was terracotta D4704A)
-val TerracottaSoft = Color(0x244F5FB3)   // accent-soft
+// warnings. The names stay (Terracotta*) so call sites don't churn; the values are a soft plum.
+val Terracotta = Color(0xFF7A5BA6)       // accent (was terracotta D4704A)
+val TerracottaSoft = Color(0x247A5BA6)   // accent-soft
 val WarnAmber = Color(0xFFD4932A)        // --warn
 val WarnAmberSoft = Color(0x21D4932A)    // --warn-soft
 // Darker twins for TEXT on the cream/white surfaces (4.5:1 or better there).
 // The brighter colours above stay for fills, lamps and large shapes.
-val TerracottaText = Color(0xFF3A4890)
+val TerracottaText = Color(0xFF5E3F8A)
 val RustText = Color(0xFFAD4848)
 val SageText = Color(0xFF3F7249)
 val CautionText = Color(0xFF8A5C0E)

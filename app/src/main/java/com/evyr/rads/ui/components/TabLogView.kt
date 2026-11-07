@@ -54,7 +54,7 @@ import com.evyr.rads.ui.theme.CautionText
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-private val HeroLight = Color(0xFF7585D0)
+private val HeroLight = Color(0xFF8E75BF)
 
 @Composable
 fun TabLogView(
@@ -100,18 +100,6 @@ fun TabLogView(
     val proteinTarget = (calorieTarget * layout.proteinShare / 4).coerceAtLeast(1.0)
     val carbTarget = (calorieTarget * layout.carbShare / 4).coerceAtLeast(1.0)
 
-    // Everything tracked per meal gets a bar: fat always, plus whatever the ticked
-    // conditions watch (sodium, sugar, sat fat, meal size, carbs). Each shows the
-    // biggest meal so far, because these limits are per meal, never daily.
-    // Allergies are yes/no, so they have no bar.
-    val perMeal = mealSlots.map { s -> dayEntries.filter { it.mealSlot == s } }
-    val limitBars: List<LimitBar> = if (layout.simple) emptyList() else buildList {
-        add(LimitBar("Fat / meal", perMeal.maxOfOrNull { es -> es.sumOf { it.fatGrams } } ?: 0.0, fatWarnGrams, fatWarnGrams, "g", false))
-        ConditionFlags.mealPeaks(perMeal, conditions, limits).forEach { pk ->
-            add(LimitBar(limitTitle(pk.label), pk.peak, pk.caution, pk.over, pk.unit, pk.partial))
-        }
-    }
-
     // Meals that already have items start open, like the PWA's expandedMeals.
     // Keyed on the date so switching days recomputes it.
     val expanded = remember(viewDate) {
@@ -137,7 +125,6 @@ fun TabLogView(
             dayCarbs = dayCarbs,
             carbTarget = carbTarget,
             showStats = layout.showCalorieRing,
-            limitBars = limitBars,
             onCheckFood = if (layout.showCheckHero) onCheckFood else null,
             onCheckMenu = if (layout.showCheckHero) onCheckMenu else null
         )
@@ -215,7 +202,6 @@ private fun LogHero(
     dayCarbs: Double,
     carbTarget: Double,
     showStats: Boolean,
-    limitBars: List<LimitBar> = emptyList(),
     onCheckFood: (() -> Unit)?,
     onCheckMenu: (() -> Unit)? = null
 ) {
@@ -318,112 +304,56 @@ private fun LogHero(
                         MacroBarRow(emoji = "\uD83C\uDF5E", label = "Carbs", value = dayCarbs, target = carbTarget)
                     }
                 }
-                if (limitBars.isNotEmpty()) {
-                    Spacer(Modifier.height(14.dp))
-                    LimitBars(limitBars)
-                }
             }
         }
     }
 }
 
-/** The safety-first home's two entry points, side by side as equals. */
+/**
+ * The safety-first home's main action. "Can I eat this?" is the primary tap;
+ * menu mode is a second row inside the same card, since it is the same job
+ * (check food before eating) for a different situation.
+ */
 @Composable
 private fun CheckFoodButton(onClick: () -> Unit, onCheckMenu: (() -> Unit)?) {
-    Row(
-        Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        ActionTile(
-            "Can I eat this?", "Scan, snap a plate, or search",
-            "Check a food", onClick, Modifier.weight(1f).fillMaxHeight()
-        )
-        if (onCheckMenu != null) {
-            ActionTile(
-                "Eating out?", "Photograph a menu",
-                "Open menu mode: photograph a menu", onCheckMenu, Modifier.weight(1f).fillMaxHeight()
-            )
-        }
-    }
-}
-
-@Composable
-private fun ActionTile(title: String, subtitle: String, label: String, onClick: () -> Unit, modifier: Modifier) {
     Column(
-        modifier
+        Modifier
+            .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
-            .accessibleClick(label, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 14.dp)
     ) {
-        Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TerracottaText)
-        Text(subtitle, fontSize = 12.sp, color = TerracottaText, modifier = Modifier.padding(top = 2.dp))
-    }
-}
-
-/** One per-meal limit: the biggest meal so far against the limit it is judged by. */
-internal data class LimitBar(
-    val label: String,
-    val value: Double,
-    val caution: Double,
-    val over: Double,
-    val unit: String,
-    val partial: Boolean
-)
-
-private fun limitTitle(label: String): String = when (label) {
-    "meal size" -> "Meal size"
-    "sat fat" -> "Sat fat / meal"
-    else -> label.replaceFirstChar { it.uppercase() } + " / meal"
-}
-
-@Composable
-private fun LimitBars(bars: List<LimitBar>) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            "Per-meal limits \u00B7 biggest meal today",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Color.White.copy(alpha = 0.9f)
-        )
-        bars.chunked(2).forEach { pair ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                pair.forEach { LimitBarCell(it, Modifier.weight(1f)) }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun LimitBarCell(bar: LimitBar, modifier: Modifier) {
-    // No warning colours up here: the cue is a symbol, so it reads without colour too.
-    val state = when {
-        bar.value >= bar.over -> "over" to " \u2715"
-        bar.value >= bar.caution && bar.caution < bar.over -> "nearing" to " !"
-        else -> "ok" to ""
-    }
-    val u = if (bar.unit == "kcal") " kcal" else bar.unit
-    val text = "${trim(bar.value)}/${trim(bar.over)}$u${state.second}"
-    val pct = if (bar.over > 0) (bar.value / bar.over).coerceIn(0.0, 1.0) else 0.0
-    Column(
-        modifier.semantics(mergeDescendants = true) {
-            contentDescription = "${bar.label}: ${trim(bar.value)} of ${trim(bar.over)}$u, ${state.first}"
-        }
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(bar.label, fontSize = 12.sp, color = Color.White.copy(alpha = 0.95f))
-            Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-        }
-        Spacer(Modifier.height(3.dp))
-        Box(
-            Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp))
-                .background(Color.White.copy(alpha = 0.28f))
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .accessibleClick("Check a food", onClick = onClick)
+                .padding(horizontal = 18.dp, vertical = 16.dp)
         ) {
-            Box(
-                Modifier.fillMaxWidth(pct.toFloat()).height(5.dp).clip(RoundedCornerShape(3.dp))
-                    .background(Color.White)
+            Text("Can I eat this?", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TerracottaText)
+            Text(
+                "Scan a barcode, snap a plate, or search",
+                fontSize = 13.sp,
+                color = TerracottaText,
+                modifier = Modifier.padding(top = 2.dp)
             )
+        }
+        if (onCheckMenu != null) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(TerracottaText.copy(alpha = 0.12f)))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .accessibleClick("Open menu mode: photograph a menu", onClick = onCheckMenu)
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Eating out? Photograph a menu",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TerracottaText,
+                    modifier = Modifier.weight(1f)
+                )
+                Text("\u203A", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TerracottaText)
+            }
         }
     }
 }

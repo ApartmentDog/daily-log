@@ -3,6 +3,7 @@ package com.evyr.rads.ui.components
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -144,7 +147,27 @@ fun LightChip(light: Light, modifier: Modifier = Modifier, description: String =
             Modifier.size(18.dp).clip(CircleShape).background(light.color),
             contentAlignment = Alignment.Center
         ) {
-            Text(light.symbol, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = light.symbolColor)
+            // Drawn rather than typed: the font's ✕ and ✓ sit off-centre in a small circle.
+            Canvas(Modifier.size(18.dp)) {
+                val w = size.width
+                val h = size.height
+                val sw = 2.dp.toPx()
+                fun at(x: Float, y: Float) = Offset(x * w, y * h)
+                when (light) {
+                    Light.STOP -> {
+                        drawLine(light.symbolColor, at(0.33f, 0.33f), at(0.67f, 0.67f), sw, StrokeCap.Round)
+                        drawLine(light.symbolColor, at(0.67f, 0.33f), at(0.33f, 0.67f), sw, StrokeCap.Round)
+                    }
+                    Light.GO -> {
+                        drawLine(light.symbolColor, at(0.29f, 0.52f), at(0.44f, 0.66f), sw, StrokeCap.Round)
+                        drawLine(light.symbolColor, at(0.44f, 0.66f), at(0.72f, 0.35f), sw, StrokeCap.Round)
+                    }
+                    Light.CAUTION -> {
+                        drawLine(light.symbolColor, at(0.5f, 0.25f), at(0.5f, 0.55f), sw, StrokeCap.Round)
+                        drawCircle(light.symbolColor, radius = 1.2.dp.toPx(), center = at(0.5f, 0.72f))
+                    }
+                }
+            }
         }
         Spacer(Modifier.width(5.dp))
         Text(word, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = textColor)

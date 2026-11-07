@@ -33,6 +33,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -244,22 +246,23 @@ fun MealAccordionCard(
                         )
                     }
                 } else {
-                    // Detailed: every meal-level problem becomes one chip ("Fat 17/10g"),
-                    // and which conditions set the limits is said once underneath.
-                    val chips = buildList {
-                        if (mealAllergyHits.isNotEmpty()) {
-                            add("Allergy: " + mealAllergyHits.joinToString(", ") { it.label } to Verdict.OVER_LIMIT)
-                        }
-                        if (overFat) add("Fat ${trim(mealFat)}/${trim(fatWarnGrams)}g" to Verdict.OVER_LIMIT)
-                        mealIssues.forEach { issue ->
-                            val unit = if (issue.unit == "kcal") " kcal" else issue.unit
-                            val limit = issue.hits.minOf { it.limit }
-                            add("${issue.label.replaceFirstChar { it.uppercase() }} ${trim(issue.total)}/${trim(limit)}$unit" to issue.severity)
-                        }
+                    // Detailed: a bar for every limit tracked for this meal (fat, plus what the
+                    // ticked conditions watch), so the numbers sit with the meal they describe.
+                    if (mealAllergyHits.isNotEmpty()) {
+                        IssueChip("Allergy: " + mealAllergyHits.joinToString(", ") { it.label }, Verdict.OVER_LIMIT)
                     }
-                    chips.chunked(2).forEach { pair ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            pair.forEach { (text, sev) -> IssueChip(text, sev) }
+                    if (entries.isNotEmpty()) {
+                        val bars = buildList {
+                            add(MealBar("Fat", mealFat, fatWarnGrams, fatWarnGrams, "g"))
+                            ConditionFlags.mealPeaks(listOf(entries), conditions, limits).forEach { pk ->
+                                add(MealBar(barTitle(pk.label), pk.peak, pk.caution, pk.over, pk.unit))
+                            }
+                        }
+                        bars.chunked(2).forEach { pair ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                pair.forEach { MealLimitBar(it, Modifier.weight(1f)) }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                            }
                         }
                     }
                     val sources = mealIssues.flatMap { it.hits }.map { it.condition.short }.distinct()
@@ -327,6 +330,62 @@ fun MealAccordionCard(
                     )
                 }
             }
+        }
+    }
+}
+
+private data class MealBar(
+    val label: String,
+    val value: Double,
+    val caution: Double,
+    val over: Double,
+    val unit: String
+)
+
+private fun barTitle(label: String): String = when (label) {
+    "meal size" -> "Meal size"
+    else -> label.replaceFirstChar { it.uppercase() }
+}
+
+/** One tracked limit for this meal: amount against limit, with a symbol as well as colour. */
+@Composable
+private fun MealLimitBar(bar: MealBar, modifier: Modifier) {
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val verdict = when {
+        bar.value >= bar.over -> Verdict.OVER_LIMIT
+        bar.caution < bar.over && bar.value >= bar.caution -> Verdict.CAUTION
+        else -> Verdict.PASS
+    }
+    val tone = severityColor(verdict)
+    val mark = when (verdict) {
+        Verdict.OVER_LIMIT -> " \u2715"
+        Verdict.CAUTION -> " !"
+        Verdict.PASS -> ""
+    }
+    val u = if (bar.unit == "kcal") " kcal" else bar.unit
+    val pct = if (bar.over > 0) (bar.value / bar.over).coerceIn(0.0, 1.0) else 0.0
+    Column(
+        modifier.semantics(mergeDescendants = true) {
+            contentDescription = "${bar.label}: ${trim(bar.value)} of ${trim(bar.over)}$u" + when (verdict) {
+                Verdict.OVER_LIMIT -> ", over the limit"
+                Verdict.CAUTION -> ", nearing the limit"
+                Verdict.PASS -> ""
+            }
+        }
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(bar.label, fontSize = 11.sp, color = onSurface.copy(alpha = 0.72f))
+            Text("${trim(bar.value)}/${trim(bar.over)}$u$mark", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = tone)
+        }
+        Spacer(Modifier.height(3.dp))
+        Box(
+            Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp))
+                .background(onSurface.copy(alpha = 0.10f))
+        ) {
+            Box(
+                Modifier.fillMaxWidth(pct.toFloat()).height(5.dp).clip(RoundedCornerShape(3.dp))
+                    .background(if (verdict == Verdict.PASS) ClayTextSoft.copy(alpha = 0.6f) else tone)
+            )
         }
     }
 }
