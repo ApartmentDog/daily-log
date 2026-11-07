@@ -151,7 +151,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                     fatGrams = food.fatGrams, proteinGrams = food.proteinGrams, carbGrams = food.carbGrams,
                     saturatedFatGrams = food.saturatedFatGrams, sugarGrams = food.sugarGrams,
                     fiberGrams = food.fiberGrams, sodiumMg = food.sodiumMg,
-                    triggers = TriggerDetector.detect(food.name, food.ingredients, food.tags)
+                    triggers = TriggerDetector.detect(food.name, food.ingredients, food.tags, food.sugarGrams)
                         .joinToString(",") { it.key }.ifBlank { null },
                     source = food.source,
                     addedAt = System.currentTimeMillis()

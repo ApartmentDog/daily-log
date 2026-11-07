@@ -162,6 +162,13 @@ object Thresholds {
     const val HERNIA_MEAL_KCAL_OVER = 850
     const val GALLBLADDER_MEAL_KCAL_CAUTION = 600
     const val GALLBLADDER_MEAL_KCAL_OVER = 850
+
+    /**
+     * Below this much sugar in the portion, the "added fructose / sugary drink"
+     * flag never fires, whatever the ingredients or name say. A judgment call,
+     * not a clinical limit: it keeps trace sugar in sauces and bread from flagging.
+     */
+    const val FRUCTOSE_MIN_SUGAR_G = 5.0
 }
 
 object TriggerDetector {
@@ -170,22 +177,32 @@ object TriggerDetector {
         Regex("""\b(?:$pattern)\b""", RegexOption.IGNORE_CASE)
 
     // Shared exclusions: soft drinks named "beer" and plant milks trip several checks.
-    private const val SOFT_BEERS = """root beer|ginger beer|ginger ale"""
+    private const val SOFT_BEERS = """root beer|ginger beer|ginger ale|birch beer"""
     private const val PLANT_MILK = """(?:oat|almond|soy|coconut|rice|cashew|hemp|pea) milk(?:\s+\w+)?"""
     private const val LOW_FODMAP_MILK = """(?:oat|almond|coconut|rice|hemp|pea) milk(?:\s+\w+)?"""
 
     /** Phrases removed before matching, so "peanut butter" isn't dairy. */
     private val strip: Map<Trigger, Regex> = mapOf(
-        Trigger.CAFFEINE to rx("""decaf(?:feinated)?(?:\s+\w+)?|caffeine[- ]free(?:\s+\w+)?|herbal teas?|(?:chamomile|rooibos|peppermint|ginger|hibiscus) teas?"""),
-        Trigger.ALCOHOL to rx("""non[- ]?alcoholic(?:\s+\w+)?|alcohol[- ]free(?:\s+\w+)?|(?:red |white |rice )?wine vinegar|$SOFT_BEERS|beer[- ]battered|scotch eggs?|butterscotch"""),
-        Trigger.SPICY to rx("""buffalo mozzarella|mild(?:\s+\w+)?"""),
-        Trigger.FRIED to rx("""air[- ]fried(?:\s+\w+)?|baked (?:chips|fries)"""),
-        Trigger.DAIRY to rx("""(?:peanut|almond|cashew|apple|cocoa|shea|sunflower|seed|nut) butter|$PLANT_MILK|dairy[- ]free(?:\s+\w+)?|non[- ]?dairy(?:\s+\w+)?|lactose[- ]free(?:\s+\w+)?|vegan (?:cheese|butter|cream|milk)|coconut cream|cream of tartar|cream soda"""),
-        Trigger.GLUTEN to rx("""$SOFT_BEERS|gluten[- ]free(?:\s+\w+)?|corn tortillas?|rice (?:noodles?|cakes?|crackers?|paper|bread)|glass noodles?|zucchini noodles?|lettuce wraps?"""),
-        Trigger.HIGH_PURINE to rx("""$SOFT_BEERS|beer[- ]battered|kidney beans?"""),
-        Trigger.HIGH_FODMAP to rx("""$LOW_FODMAP_MILK|green beans?|coffee beans?|jelly beans?|garlic[- ]infused oil"""),
-        Trigger.FRUCTOSE to rx("""diet (?:soda|coke|pepsi|cola|drink)s?|(?:coke|pepsi) zero|zero sugar(?:\s+\w+)?|sugar[- ]free(?:\s+\w+)?|unsweetened(?:\s+\w+)?"""),
-        Trigger.CARBONATED to rx("""beer[- ]battered""")
+        Trigger.CAFFEINE to rx("""decaf(?:feinated)?(?:\s+\w+)?|caffeine[- ]free(?:\s+\w+)?|herbal teas?|(?:chamomile|rooibos|peppermint|ginger|hibiscus) teas?|coffee cakes?"""),
+        Trigger.ALCOHOL to rx("""non[- ]?alcoholic(?:\s+\w+)?|alcohol[- ]free(?:\s+\w+)?|(?:red |white |rice )?wine vinegar|champagne (?:vinegar|vinaigrette|dressing)|$SOFT_BEERS|beer[- ]battered|scotch eggs?|scotch bonnets?|butterscotch|(?:fruit|shrimp|seafood|crab|lobster) cocktail|cocktail (?:sauce|sausages?|franks?|weenies|wieners|onions?|peanuts?|nuts?|olives?|tomatoes|shrimp|bread|rye|pickles?)|wine gums?|bourbon (?:street|vanilla)|virgin (?:pina coladas?|mojitos?|margaritas?|daiquiris?|bloody marys?)"""),
+        Trigger.SPICY to rx("""buffalo mozzarella|mild(?:\s+\w+)?|non[- ]spicy|not spicy|chili['’]?s|chipotle mexican grill|buffalo wild wings|serrano ham|jam[oó]n serrano"""),
+        Trigger.FRIED to rx("""air[- ]fried(?:\s+\w+)?|oven[- ]fried|baked (?:chips|fries)|(?:grilled|baked|roasted|oven[- ]baked|oven[- ]roasted|steamed)(?:[^a-z]+[a-z]+){0,3}?[^a-z]+(?:nuggets?|tenders?|strips?|fingers?|wings?|chips|fries|tots)|(?:chocolate|choc|semi[- ]?sweet|milk|dark|white|mint|butterscotch|cinnamon|baking|candy|yogurt|peanut butter) chips?|chips ahoy|(?:kale|apple|pita|bagel|pretzel|protein|beet) chips|fresh spring rolls?|summer rolls?|rice paper rolls?|rice crispy|crispy rice|crispy (?:greens|salad|cucumbers?|seaweed)"""),
+        Trigger.DAIRY to rx("""(?:peanut|almond|cashew|apple|cocoa|cacao|shea|sunflower|seed|nut|cookie|coconut|sun) butter|butter (?:beans?|lettuce)|$PLANT_MILK|dairy[- ]free(?:\s+\w+)?|non[- ]?dairy(?:\s+\w+)?|lactose[- ]free(?:\s+\w+)?|vegan (?:cheese|butter|cream|milk)|(?:coconut|almond|soy|oat|cashew|pea|plant[- ]based|nut[- ]based) (?:yogh?urts?|creamers?|ice cream|cream cheese|cheese)|coconut cream|cream of (?:tartar|wheat|rice)|cream soda"""),
+        Trigger.GLUTEN to rx("""$SOFT_BEERS|gluten[- ]free(?:\s+\w+)?|wheat[- ]free|corn tortillas?|(?:corn )?tortilla chips?|rice (?:noodles?|cakes?|crackers?|paper|bread)|glass noodles?|zucchini noodles?|lettuce wraps?|(?:almond|coconut|rice|corn|tapioca|potato|chickpea|cassava|buckwheat|sorghum|millet|quinoa|amaranth|teff|banana|arrowroot|lentil|pea|soy|cashew|hazelnut|tigernut|plantain|garbanzo|fava|masa) flour|(?:chickpea|lentil|rice|quinoa|corn|bean|edamame|pea|cassava|konjac|shirataki|hearts? of palm) (?:pasta|noodles?)|corn cakes?|potato cakes?"""),
+        Trigger.HIGH_PURINE to rx("""$SOFT_BEERS|beer[- ]battered|kidney beans?|oyster crackers?|crab apples?|(?:mushroom|vegetarian|vegan|veggie|vegetable) (?:gravy|bouillon)"""),
+        Trigger.HIGH_FODMAP to rx("""$LOW_FODMAP_MILK|green beans?|coffee beans?|jelly beans?|garlic[- ]infused oil|(?:cocoa|cacao|vanilla|string|wax) beans?|(?:mung )?bean sprouts?|beansprouts?|lactose[- ]free(?:\s+(?:greek|vanilla|plain|chocolate|whole|skim|low[- ]?fat|nonfat))*\s+(?:milk|yogh?urts?|ice cream)"""),
+        Trigger.FRUCTOSE to rx("""diet (?:soda|coke|pepsi|cola|drink)s?|(?:coke|pepsi) zero|zero sugar(?:\s+\w+)?|sugar[- ]free(?:\s+\w+)?|unsweetened(?:\s+\w+)?|soda (?:bread|crackers?)|baking soda"""),
+        Trigger.CARBONATED to rx("""beer[- ]battered|baking soda|soda (?:bread|crackers?)|non[- ]?carbonated|uncarbonated|champagne (?:vinegar|vinaigrette|dressing)""")
+    )
+
+    /**
+     * If any of these appear in a food's name or ingredients, the trigger does not
+     * apply at all. DAIRY only feeds the lactose check, so "lactose free" and
+     * "dairy free" settle it. FRUCTOSE's name fallback skips diet and zero versions.
+     */
+    private val veto: Map<Trigger, Regex> = mapOf(
+        Trigger.DAIRY to rx("""lactose[- ]free|dairy[- ]free|non[- ]?dairy|vegan"""),
+        Trigger.FRUCTOSE to rx("""diet|zero|sugar[- ]?free|no sugar(?: added)?|unsweetened|club soda|soda water""")
     )
 
     private val patterns: Map<Trigger, Regex> = mapOf(
@@ -196,22 +213,52 @@ object TriggerDetector {
         Trigger.ACIDIC to rx("""tomato(?:es)?|marinara|pizza|salsa|ketchup|bbq|barbecue|oranges?|orange juice|oj|lemons?|lemonade|limes?|limeade|grapefruits?|citrus|pineapples?|vinegar|vinaigrette|cranberr(?:y|ies)|pickles?|sauerkraut|hot sauce"""),
         Trigger.CARBONATED to rx("""sodas?|colas?|coke|pepsi|sprite|fanta|7[- ]?up|dr\.? ?pepper|mountain dew|root beer|ginger ale|ginger beer|cream soda|sparkling|seltzers?|club soda|tonic|carbonated|energy drinks?|red bull|monster energy|kombucha|beers?|champagne|prosecco|la ?croix|bubly"""),
         Trigger.CHOCOLATE_MINT to rx("""chocolate|cocoa|cacao|fudge|brownies?|mochas?|nutella|peppermint|spearmint|mints?"""),
-        Trigger.DAIRY to rx("""milk|milkshakes?|shakes?|cheeses?|cheesy|cheddar|mozzarella|parmesan|parmigiano|provolone|pepper jack|brie|gouda|feta|ricotta|mascarpone|queso|cream|creamer|sour cream|ice cream|whipped cream|cream cheese|half and half|butter|buttercream|buttermilk|buttery|yogh?urts?|kefir|whey|casein|lactose|alfredo|custard|pudding|froyo|lattes?|cappuccinos?|frappuccinos?|mac (?:and|&|n) cheese|gelato|cheesecake|frosty|blizzard|mcflurry"""),
+        Trigger.DAIRY to rx("""milk|milkshakes?|protein shakes?|cheeses?|cheesy|cheddar|mozzarella|parmesan|parmigiano|provolone|pepper jack|brie|gouda|feta|ricotta|mascarpone|queso|cream|creamer|sour cream|ice cream|whipped cream|cream cheese|half and half|butter|buttercream|buttermilk|buttery|yogh?urts?|kefir|whey|casein|lactose|alfredo|custard|pudding|froyo|lattes?|cappuccinos?|frappuccinos?|mac (?:and|&|n) cheese|gelato|cheesecake|frosty|blizzard|mcflurry"""),
         Trigger.GLUTEN to rx("""wheat|flour|breads?|breaded|breadsticks?|buns?|bagels?|biscuits?|croissants?|muffins?|pancakes?|waffles?|french toast|toast|tortillas?|wraps?|pitas?|naan|flatbreads?|crackers?|cookies?|cakes?|cupcakes?|pastr(?:y|ies)|pies?|pretzels?|pasta|spaghetti|linguine|fettuccine|penne|macaroni|lasagna|ravioli|noodles?|ramen|udon|dumplings?|couscous|bulgur|farro|spelt|semolina|barley|rye|malt|seitan|croutons?|sandwich(?:es)?|burgers?|subs?|hoagies?|pizza|calzones?|stromboli|beers?|soy sauce|teriyaki|gravy|roux|battered|tempura|doughnuts?|donuts?|churros?|cereal|granola|gluten|panko|brioche|sourdough|(?:dinner|egg|cinnamon|spring|crescent) rolls?"""),
         Trigger.HIGH_PURINE to rx("""anchov(?:y|ies)|sardines?|herring|mackerel|mussels?|scallops?|trout|organ meats?|liver|livers|liverwurst|pate|pâté|kidneys?|sweetbreads?|tripe|venison|goose|gravy|bouillon|beers?|shellfish|shrimp|lobster|crab|clams?|oysters?|roe|caviar"""),
         Trigger.HIGH_FODMAP to rx("""onions?|garlic|beans?|refried beans|baked beans|lentils?|chickpeas?|hummus|falafel|apples?|apple juice|pears?|mangos?|mangoes|watermelon|cherr(?:y|ies)|peach(?:es)?|plums?|prunes|dates|figs|honey|agave|high fructose corn syrup|hfcs|sorbitol|xylitol|mannitol|maltitol|isomalt|cauliflower|mushrooms?|asparagus|artichokes?|leeks?|shallots?|wheat|rye|barley|inulin|chicory|milk|ice cream|yogh?urts?|ricotta|cottage cheese|cashews?|pistachios?"""),
         Trigger.FRUCTOSE to rx("""high fructose corn syrup|hfcs|corn syrup|fructose|agave|sodas?|colas?|coke|pepsi|sprite|fanta|7[- ]?up|dr\.? ?pepper|mountain dew|root beer|ginger ale|lemonade|limeade|sweet tea|fruit punch|punch|juices?|energy drinks?|red bull|sports drinks?|gatorade|powerade|slush(?:y|ies)|slurpee|icee|frappuccinos?|milkshakes?|syrup|candy|candies""")
     )
 
-    fun detect(name: String, ingredients: String?, tags: Set<String>): Set<Trigger> {
+    /** Added-sugar sources in an ingredient list. The fructose flag is judged from this when ingredients exist. */
+    private val addedSugarIngredients = rx("""high[- ]fructose corn syrup|glucose[- ]fructose|hfcs|corn syrup|fructose|agave|sugars?|cane juice|honey|molasses|syrups?|juice concentrate|concentrated juice|(?:apple|orange|grape|pineapple|cranberry|pomegranate|fruit) juice""")
+
+    /** Removed from ingredient text first, so "sugar free" or "milk sugar" don't count as added sugar. */
+    private val ingredientStrip = rx("""sugar[- ]free|no (?:added )?sugars?(?: added)?|zero sugar|sugar alcohols?|milk sugar|unsweetened""")
+
+    fun detect(
+        name: String,
+        ingredients: String?,
+        tags: Set<String>,
+        sugarGrams: Double? = null
+    ): Set<Trigger> {
         val text = (name + " " + ingredients.orEmpty()).lowercase()
         val found = mutableSetOf<Trigger>()
         for ((trigger, regex) in patterns) {
+            if (trigger == Trigger.FRUCTOSE) continue // judged by isAddedFructose below
+            if (veto[trigger]?.containsMatchIn(text) == true) continue
             val cleaned = strip[trigger]?.replace(text, " ") ?: text
             if (regex.containsMatchIn(cleaned)) found += trigger
         }
+        if (isAddedFructose(name, ingredients, sugarGrams)) found += Trigger.FRUCTOSE
         tags.mapNotNullTo(found) { Trigger.fromKey(it) }
         return found
+    }
+
+    /**
+     * Added fructose / sugary drink, checked in this order: too little sugar in
+     * the portion ends it; then the ingredient list decides, when there is one;
+     * the name is only a last resort for foods with no ingredient text.
+     */
+    private fun isAddedFructose(name: String, ingredients: String?, sugarGrams: Double?): Boolean {
+        if (sugarGrams != null && sugarGrams < Thresholds.FRUCTOSE_MIN_SUGAR_G) return false
+        if (!ingredients.isNullOrBlank()) {
+            return addedSugarIngredients.containsMatchIn(ingredientStrip.replace(ingredients.lowercase(), " "))
+        }
+        val lowered = name.lowercase()
+        if (veto.getValue(Trigger.FRUCTOSE).containsMatchIn(lowered)) return false
+        val cleaned = strip[Trigger.FRUCTOSE]?.replace(lowered, " ") ?: lowered
+        return patterns.getValue(Trigger.FRUCTOSE).containsMatchIn(cleaned)
     }
 }
 
@@ -411,7 +458,7 @@ object ConditionFlags {
     /** Stored triggers when present; otherwise detected from the name (older entries). */
     fun triggersOf(entry: FoodLogEntry): Set<Trigger> =
         entry.triggers?.let { Trigger.parse(it) }
-            ?: TriggerDetector.detect(entry.name, null, emptySet())
+            ?: TriggerDetector.detect(entry.name, null, emptySet(), entry.sugarGrams)
 
     /** What's in this one food that a ticked condition cares about. */
     fun forEntry(entry: FoodLogEntry, conditions: Set<Condition>): List<ConditionWarning> {
@@ -515,7 +562,7 @@ object VerdictRules {
         if (food.confidence == "low") reasons += "AI estimate — numbers are approximate."
 
         // ---- Conditions ----
-        val found = TriggerDetector.detect(food.name, food.ingredients, food.tags)
+        val found = TriggerDetector.detect(food.name, food.ingredients, food.tags, food.sugarGrams)
         val skipped = mutableListOf<String>()
         val collector = FlagCollector()
         collector.triggers(found, conditions)

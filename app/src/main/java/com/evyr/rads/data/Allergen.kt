@@ -24,11 +24,27 @@ enum class Allergen(val key: String, val label: String, val matchWords: List<Str
     ),
     SHELLFISH(
         "shellfish", "Shellfish",
-        listOf("shrimp", "prawn", "crab", "lobster", "scallop", "clam", "mussel", "oyster", "crawfish")
+        listOf(
+            "shrimp", "prawn", "crab", "lobster", "scallop", "clam", "mussel", "oyster", "crawfish",
+            "crayfish", "shellfish"
+        )
     ),
-    FISH("fish", "Fish", listOf("salmon", "tuna", "cod", "tilapia", "halibut", "anchovy", "sardine", "fish sauce")),
-    EGGS("eggs", "Eggs", listOf("egg")),
-    DAIRY("dairy", "Milk / Dairy", listOf("milk", "cheese", "butter", "cream", "yogurt", "whey", "casein")),
+    FISH(
+        "fish", "Fish",
+        listOf(
+            "salmon", "tuna", "cod", "tilapia", "halibut", "anchovy", "sardine", "fish sauce",
+            "fish", "anchovies", "pollock", "haddock", "catfish", "trout", "mackerel", "herring",
+            "snapper", "swordfish", "mahi mahi", "sea bass", "worcestershire"
+        )
+    ),
+    EGGS("eggs", "Eggs", listOf("egg", "eggnog")),
+    DAIRY(
+        "dairy", "Milk / Dairy",
+        listOf(
+            "milk", "cheese", "butter", "cream", "yogurt", "whey", "casein",
+            "milkshake", "buttermilk", "cheeseburger", "cheesecake", "caseinate", "ghee", "lactose"
+        )
+    ),
     WHEAT_GLUTEN(
         "wheat_gluten", "Wheat / Gluten",
         listOf("wheat", "gluten", "barley", "rye", "malt", "bread", "pasta", "flour tortilla")
@@ -67,10 +83,26 @@ data class AllergyFlag(val label: String)
 
 object AllergyChecker {
 
-    private fun rx(word: String) = Regex("""\b${Regex.escape(word)}\b""", RegexOption.IGNORE_CASE)
+    /** The word, plus a plural ending, so "peanuts" and "eggs" match "peanut" and "egg". */
+    private fun rx(word: String) = Regex("""\b${Regex.escape(word)}(?:s|es)?\b""", RegexOption.IGNORE_CASE)
 
     private fun matches(text: String, words: List<String>) =
         words.any { rx(it).containsMatchIn(text) }
+
+    /**
+     * Phrases that contain an allergen word without the allergen, removed before
+     * matching that one allergen. Only unambiguous cases. "Non-dairy" and "gluten
+     * free" are deliberately NOT here: those labels don't rule out milk derivatives
+     * or wheat starch, and a missed allergy is worse than a false flag.
+     */
+    private val neutral: Map<Allergen, Regex> = mapOf(
+        Allergen.DAIRY to Regex(
+            """\b(?:(?:peanut|almond|cashew|hazelnut|cocoa|cacao|shea|sunflower|seed|nut|apple|coconut|cookie|sun) butter|butter (?:beans?|lettuce)|cream of tartar|cream soda|(?:coconut|almond|cashew|soy|oat|rice|hemp|pea|flax|macadamia|hazelnut) (?:milk|cream))\b""",
+            RegexOption.IGNORE_CASE
+        ),
+        Allergen.FISH to Regex("""\b(?:swedish fish|goldfish|fish[- ]free)\b""", RegexOption.IGNORE_CASE),
+        Allergen.EGGS to Regex("""\b(?:egg[- ]free|eggless)\b""", RegexOption.IGNORE_CASE)
+    )
 
     /** Every allergen (common + custom) present in the given text. */
     fun check(
@@ -80,7 +112,10 @@ object AllergyChecker {
     ): List<AllergyFlag> {
         if (text.isBlank()) return emptyList()
         val hits = mutableListOf<AllergyFlag>()
-        allergens.forEach { a -> if (matches(text, a.matchWords)) hits += AllergyFlag(a.label) }
+        allergens.forEach { a ->
+            val cleaned = neutral[a]?.replace(text, " ") ?: text
+            if (matches(cleaned, a.matchWords)) hits += AllergyFlag(a.label)
+        }
         customAllergens.forEach { c -> if (matches(text, listOf(c.label))) hits += AllergyFlag(c.label) }
         return hits
     }
