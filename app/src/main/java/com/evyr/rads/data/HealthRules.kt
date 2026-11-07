@@ -300,6 +300,12 @@ private class AmountRule(
     val fromFood: (ScannedFood) -> Double?
 )
 
+/** No sat fat listed on something with no fat at all means 0, not "unknown". */
+private fun satFat(sat: Double?, fat: Double): Double? = sat ?: if (fat < 0.5) 0.0 else null
+
+/** Same for sugar on something with no carbs. */
+private fun sugarOf(sugar: Double?, carbs: Double): Double? = sugar ?: if (carbs < 0.5) 0.0 else null
+
 private val AMOUNT_RULES = listOf(
     AmountRule(Condition.REFLUX, "meal size", "kcal",
         Thresholds.REFLUX_MEAL_KCAL_CAUTION.toDouble(), Thresholds.REFLUX_MEAL_KCAL_OVER.toDouble(),
@@ -309,28 +315,28 @@ private val AMOUNT_RULES = listOf(
         { it.calories.toDouble() }, { it.calories.toDouble() }),
     AmountRule(Condition.FATTY_LIVER, "sugar", "g",
         Thresholds.SUGAR_CAUTION_G, Thresholds.SUGAR_OVER_G,
-        { it.sugarGrams }, { it.sugarGrams }),
+        { sugarOf(it.sugarGrams, it.carbGrams) }, { sugarOf(it.sugarGrams, it.carbGrams) }),
     AmountRule(Condition.FATTY_LIVER, "sat fat", "g",
         Thresholds.SATFAT_CAUTION_G, Thresholds.SATFAT_OVER_G,
-        { it.saturatedFatGrams }, { it.saturatedFatGrams }),
+        { satFat(it.saturatedFatGrams, it.fatGrams) }, { satFat(it.saturatedFatGrams, it.fatGrams) }),
     AmountRule(Condition.DIABETES, "carbs", "g",
         Thresholds.CARB_CAUTION_G, Thresholds.CARB_OVER_G,
         { it.carbGrams }, { it.carbGrams }),
     AmountRule(Condition.DIABETES, "sugar", "g",
         Thresholds.SUGAR_CAUTION_G, Thresholds.SUGAR_OVER_G,
-        { it.sugarGrams }, { it.sugarGrams }),
+        { sugarOf(it.sugarGrams, it.carbGrams) }, { sugarOf(it.sugarGrams, it.carbGrams) }),
     AmountRule(Condition.HYPERTENSION, "sodium", "mg",
         Thresholds.SODIUM_CAUTION_MG, Thresholds.SODIUM_OVER_MG,
         { it.sodiumMg }, { it.sodiumMg }),
     AmountRule(Condition.CHOLESTEROL, "sat fat", "g",
         Thresholds.SATFAT_CAUTION_G, Thresholds.SATFAT_OVER_G,
-        { it.saturatedFatGrams }, { it.saturatedFatGrams }),
+        { satFat(it.saturatedFatGrams, it.fatGrams) }, { satFat(it.saturatedFatGrams, it.fatGrams) }),
     AmountRule(Condition.GALLBLADDER, "meal size", "kcal",
         Thresholds.GALLBLADDER_MEAL_KCAL_CAUTION.toDouble(), Thresholds.GALLBLADDER_MEAL_KCAL_OVER.toDouble(),
         { it.calories.toDouble() }, { it.calories.toDouble() }),
     AmountRule(Condition.GALLBLADDER, "sat fat", "g",
         Thresholds.SATFAT_CAUTION_G, Thresholds.SATFAT_OVER_G,
-        { it.saturatedFatGrams }, { it.saturatedFatGrams })
+        { satFat(it.saturatedFatGrams, it.fatGrams) }, { satFat(it.saturatedFatGrams, it.fatGrams) })
 )
 
 private fun worst(a: Verdict, b: Verdict) = if (b.ordinal > a.ordinal) b else a
@@ -368,6 +374,8 @@ private fun FlagCollector.triggers(found: Set<Trigger>, conditions: Set<Conditio
 private fun FlagCollector.amounts(
     conditions: Set<Condition>,
     limits: Limits,
+    /** What the food being judged adds for this rule. Null means judge the whole list (meal checks). */
+    marginal: ((AmountRule) -> Double?)? = null,
     valuesFor: (AmountRule) -> List<Double?>
 ) {
     for (rule in AMOUNT_RULES.map { it.under(limits) }) {
@@ -375,11 +383,18 @@ private fun FlagCollector.amounts(
         val values = valuesFor(rule)
         if (values.none { it != null }) continue
         val total = values.sumOf { it ?: 0.0 }
-        val level = when {
-            total >= rule.over -> Verdict.OVER_LIMIT
-            total >= rule.caution -> Verdict.CAUTION
-            else -> Verdict.PASS
+        val levelOf = { v: Double ->
+            when {
+                v >= rule.over -> Verdict.OVER_LIMIT
+                v >= rule.caution -> Verdict.CAUTION
+                else -> Verdict.PASS
+            }
         }
+        val level = levelOf(total)
+        // A food is judged on what it adds. If the meal was already at this level and the food
+        // adds next to nothing, the problem belongs to the meal (its card shows it), not this food.
+        val own = marginal?.invoke(rule)
+        if (own != null && own < rule.over * 0.10 && levelOf(total - own) == level) continue
         val partial = values.any { it == null }
         add(
             rule.condition, level,
@@ -489,12 +504,22 @@ object VerdictRules {
         // ---- Fat, per meal ----
         val fatAlready = mealEntries.sumOf { it.fatGrams }
         val projectedFat = fatAlready + food.fatGrams
-        val fatVerdict = when {
-            projectedFat >= fatLimitPerMeal -> Verdict.OVER_LIMIT
-            projectedFat >= fatLimitPerMeal * 0.7 -> Verdict.CAUTION
-            else -> Verdict.PASS
+        val fatLevel = { v: Double ->
+            when {
+                v >= fatLimitPerMeal -> Verdict.OVER_LIMIT
+                v >= fatLimitPerMeal * 0.7 -> Verdict.CAUTION
+                else -> Verdict.PASS
+            }
         }
-        reasons += when (fatVerdict) {
+        // Judge the food on what it adds. Almost no fat, and the meal was already at this level:
+        // the meal is over, not this food.
+        val fatAddsNothing = food.fatGrams < fatLimitPerMeal * 0.10 &&
+            fatLevel(fatAlready) == fatLevel(projectedFat) && fatLevel(projectedFat) != Verdict.PASS
+        val fatVerdict = if (fatAddsNothing) Verdict.PASS else fatLevel(projectedFat)
+        if (fatAddsNothing) {
+            reasons += "This meal already has ${fmt(fatAlready)}g of fat (your limit is ${fmt(fatLimitPerMeal)}g). " +
+                "This adds ${fmt(food.fatGrams)}g."
+        } else reasons += when (fatVerdict) {
             Verdict.OVER_LIMIT -> "Fat ${fmt(projectedFat)}g, over your ${fmt(fatLimitPerMeal)}g meal limit."
             Verdict.CAUTION -> "Fat ${fmt(projectedFat)}g. Your meal limit is ${fmt(fatLimitPerMeal)}g."
             else -> "Fat ${fmt(projectedFat)}g of your ${fmt(fatLimitPerMeal)}g meal limit."
@@ -509,7 +534,7 @@ object VerdictRules {
         val skipped = mutableListOf<String>()
         val collector = FlagCollector()
         collector.triggers(found, conditions)
-        collector.amounts(conditions, limits) { rule ->
+        collector.amounts(conditions, limits, marginal = { rule -> rule.fromFood(food) }) { rule ->
             val item = rule.fromFood(food)
             if (item == null) {
                 skipped += "${rule.label} for ${rule.condition.short}"
