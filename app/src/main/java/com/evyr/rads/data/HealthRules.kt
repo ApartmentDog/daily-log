@@ -374,8 +374,6 @@ private fun FlagCollector.triggers(found: Set<Trigger>, conditions: Set<Conditio
 private fun FlagCollector.amounts(
     conditions: Set<Condition>,
     limits: Limits,
-    /** What the food being judged adds for this rule. Null means judge the whole list (meal checks). */
-    marginal: ((AmountRule) -> Double?)? = null,
     valuesFor: (AmountRule) -> List<Double?>
 ) {
     for (rule in AMOUNT_RULES.map { it.under(limits) }) {
@@ -391,10 +389,6 @@ private fun FlagCollector.amounts(
             }
         }
         val level = levelOf(total)
-        // A food is judged on what it adds. If the meal was already at this level and the food
-        // adds next to nothing, the problem belongs to the meal (its card shows it), not this food.
-        val own = marginal?.invoke(rule)
-        if (own != null && own < rule.over * 0.10 && levelOf(total - own) == level) continue
         val partial = values.any { it == null }
         add(
             rule.condition, level,
@@ -487,6 +481,8 @@ object ConditionFlags {
 object VerdictRules {
 
     /**
+     * Each item is judged on its own: [mealEntries] is kept for callers but no longer
+     * changes the verdict. The meal's total is the meal card's job.
      * Fat is judged against the per-meal ceiling. Condition checks add their
      * own flags, each naming its condition; the stamp shows the worst of all.
      */
@@ -501,30 +497,19 @@ object VerdictRules {
     ): VerdictResult {
         val reasons = mutableListOf<String>()
 
-        // ---- Fat, per meal ----
-        val fatAlready = mealEntries.sumOf { it.fatGrams }
-        val projectedFat = fatAlready + food.fatGrams
-        val fatLevel = { v: Double ->
-            when {
-                v >= fatLimitPerMeal -> Verdict.OVER_LIMIT
-                v >= fatLimitPerMeal * 0.7 -> Verdict.CAUTION
-                else -> Verdict.PASS
-            }
+        // ---- Fat: this item alone against the per-meal limit ----
+        // What the whole meal adds up to is shown on the meal card, not blamed on this item.
+        val projectedFat = food.fatGrams
+        val fatVerdict = when {
+            projectedFat >= fatLimitPerMeal -> Verdict.OVER_LIMIT
+            projectedFat >= fatLimitPerMeal * 0.7 -> Verdict.CAUTION
+            else -> Verdict.PASS
         }
-        // Judge the food on what it adds. Almost no fat, and the meal was already at this level:
-        // the meal is over, not this food.
-        val fatAddsNothing = food.fatGrams < fatLimitPerMeal * 0.10 &&
-            fatLevel(fatAlready) == fatLevel(projectedFat) && fatLevel(projectedFat) != Verdict.PASS
-        val fatVerdict = if (fatAddsNothing) Verdict.PASS else fatLevel(projectedFat)
-        if (fatAddsNothing) {
-            reasons += "This meal already has ${fmt(fatAlready)}g of fat (your limit is ${fmt(fatLimitPerMeal)}g). " +
-                "This adds ${fmt(food.fatGrams)}g."
-        } else reasons += when (fatVerdict) {
+        reasons += when (fatVerdict) {
             Verdict.OVER_LIMIT -> "Fat ${fmt(projectedFat)}g, over your ${fmt(fatLimitPerMeal)}g meal limit."
             Verdict.CAUTION -> "Fat ${fmt(projectedFat)}g. Your meal limit is ${fmt(fatLimitPerMeal)}g."
             else -> "Fat ${fmt(projectedFat)}g of your ${fmt(fatLimitPerMeal)}g meal limit."
         }
-        if (fatAlready > 0) reasons += "${fmt(fatAlready)}g already logged this meal."
         if (food.calories >= 700) reasons += "Large single item at ${food.calories} kcal."
         food.servingNote?.let { reasons += it }
         if (food.confidence == "low") reasons += "AI estimate — numbers are approximate."
@@ -534,13 +519,14 @@ object VerdictRules {
         val skipped = mutableListOf<String>()
         val collector = FlagCollector()
         collector.triggers(found, conditions)
-        collector.amounts(conditions, limits, marginal = { rule -> rule.fromFood(food) }) { rule ->
+        collector.amounts(conditions, limits) { rule ->
             val item = rule.fromFood(food)
             if (item == null) {
                 skipped += "${rule.label} for ${rule.condition.short}"
                 listOf<Double?>(null)
             } else {
-                mealEntries.map(rule.fromEntry) + item
+                // Just this item. What the whole meal adds up to is the meal card's job.
+                listOf(item)
             }
         }
         val warnings = collector.build()
