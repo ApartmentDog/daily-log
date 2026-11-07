@@ -327,6 +327,16 @@ data class MealIssue(
     }
 }
 
+/** The biggest meal so far for one tracked amount, with the limits it is judged by. */
+data class MealPeak(
+    val label: String,
+    val unit: String,
+    val peak: Double,
+    val caution: Double,
+    val over: Double,
+    val partial: Boolean
+)
+
 /** This rule with the user's own limit applied, if they set one for what it measures. */
 private fun AmountRule.under(limits: Limits): AmountRule =
     if (label !in Limits.ADJUSTABLE || label !in limits.overrides) this
@@ -510,6 +520,38 @@ object ConditionFlags {
                 )
             }
             .sortedByDescending { it.severity.ordinal }
+    }
+
+    /**
+     * For each per-meal amount the ticked conditions track, the biggest single
+     * meal so far against the strictest limit among those conditions. Feeds the
+     * home screen's bars. Limits are per meal, so this is never a daily total.
+     */
+    fun mealPeaks(
+        meals: List<List<FoodLogEntry>>,
+        conditions: Set<Condition>,
+        limits: Limits = Limits()
+    ): List<MealPeak> {
+        if (conditions.isEmpty()) return emptyList()
+        val all = meals.filter { it.isNotEmpty() }
+        return AMOUNT_RULES
+            .map { it.under(limits) }
+            .filter { it.condition in conditions }
+            .groupBy { it.label }
+            .mapNotNull { (label, rules) ->
+                val first = rules.first()
+                val perMeal = all.map { es -> es.mapNotNull(first.fromEntry) to es.any { first.fromEntry(it) == null } }
+                    .filter { (vals, _) -> vals.isNotEmpty() }
+                if (all.isNotEmpty() && perMeal.isEmpty()) return@mapNotNull null
+                MealPeak(
+                    label = label,
+                    unit = first.unit,
+                    peak = perMeal.maxOfOrNull { (vals, _) -> vals.sum() } ?: 0.0,
+                    caution = rules.minOf { it.caution },
+                    over = rules.minOf { it.over },
+                    partial = perMeal.any { it.second }
+                )
+            }
     }
 
     /** Amount checks across a whole meal (sodium, sugar, carbs, sat fat, size). */

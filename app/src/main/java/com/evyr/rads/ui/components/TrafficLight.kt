@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -32,7 +34,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evyr.rads.data.Verdict
+import com.evyr.rads.ui.theme.CautionText
+import com.evyr.rads.ui.theme.RustText
 import com.evyr.rads.ui.theme.SageAccent
+import com.evyr.rads.ui.theme.SageText
 import com.evyr.rads.ui.theme.WarnAmber
 import com.evyr.rads.ui.theme.WarnRust
 
@@ -107,6 +112,42 @@ fun TrafficLight(
             verticalArrangement = Arrangement.spacedBy(gap),
             horizontalAlignment = Alignment.CenterHorizontally
         ) { lamps() }
+    }
+}
+
+/**
+ * Compact verdict for tight spots like a meal header: one lamp with its symbol
+ * plus a word, in a soft tint. The full three-lamp housing is too dark and too
+ * small there, and an unlit lamp tells you nothing, so only the lit one shows.
+ */
+@Composable
+fun LightChip(light: Light, modifier: Modifier = Modifier, description: String = light.spoken) {
+    val word = when (light) {
+        Light.STOP -> "Skip"
+        Light.CAUTION -> "Careful"
+        Light.GO -> "Okay"
+    }
+    val textColor = when (light) {
+        Light.STOP -> RustText
+        Light.CAUTION -> CautionText
+        Light.GO -> SageText
+    }
+    Row(
+        modifier
+            .semantics(mergeDescendants = true) { contentDescription = "Traffic light: $description" }
+            .clip(RoundedCornerShape(50))
+            .background(light.color.copy(alpha = 0.16f))
+            .padding(start = 4.dp, end = 9.dp, top = 3.dp, bottom = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(18.dp).clip(CircleShape).background(light.color),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(light.symbol, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = light.symbolColor)
+        }
+        Spacer(Modifier.width(5.dp))
+        Text(word, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = textColor)
     }
 }
 

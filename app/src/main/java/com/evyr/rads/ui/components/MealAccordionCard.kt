@@ -33,7 +33,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evyr.rads.data.Allergen
@@ -184,10 +187,7 @@ fun MealAccordionCard(
             }
             if (showLight) {
                 Spacer(Modifier.width(8.dp))
-                TrafficLight(
-                    mealLight, dot = 10.dp, horizontal = true, showSymbol = false,
-                    description = "$label check: ${mealLight.spoken}"
-                )
+                LightChip(mealLight, description = "$label check: ${mealLight.spoken}")
             }
             Spacer(Modifier.weight(1f))
             if (total > 0) {
@@ -224,29 +224,56 @@ fun MealAccordionCard(
                     .padding(start = 15.dp, end = 15.dp, bottom = 13.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                if (overFat) {
-                    Text(
-                        "Over your fat limit for this meal: ${trim(mealFat)}g of ${trim(fatWarnGrams)}g",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = error
-                    )
-                }
-                mealIssues.forEach { issue ->
-                    Text(
-                        issue.describe(simple),
-                        fontSize = 12.sp,
-                        fontWeight = if (issue.severity == Verdict.OVER_LIMIT) FontWeight.Bold else FontWeight.Normal,
-                        color = severityColor(issue.severity)
-                    )
-                }
-                if (mealAllergyHits.isNotEmpty()) {
-                    Text(
-                        "ALLERGY: " + mealAllergyHits.joinToString(", ") { it.label },
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = error
-                    )
+                if (simple) {
+                    // Plain words for the simple layout: one line per cause, no numbers.
+                    if (overFat) {
+                        Text("Too much fat for one meal", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = error)
+                    }
+                    mealIssues.forEach { issue ->
+                        Text(
+                            issue.describe(true),
+                            fontSize = 15.sp,
+                            fontWeight = if (issue.severity == Verdict.OVER_LIMIT) FontWeight.Bold else FontWeight.Normal,
+                            color = severityColor(issue.severity)
+                        )
+                    }
+                    if (mealAllergyHits.isNotEmpty()) {
+                        Text(
+                            "ALLERGY: " + mealAllergyHits.joinToString(", ") { it.label },
+                            fontSize = 15.sp, fontWeight = FontWeight.Bold, color = error
+                        )
+                    }
+                } else {
+                    // Detailed: every meal-level problem becomes one chip ("Fat 17/10g"),
+                    // and which conditions set the limits is said once underneath.
+                    val chips = buildList {
+                        if (mealAllergyHits.isNotEmpty()) {
+                            add("Allergy: " + mealAllergyHits.joinToString(", ") { it.label } to Verdict.OVER_LIMIT)
+                        }
+                        if (overFat) add("Fat ${trim(mealFat)}/${trim(fatWarnGrams)}g" to Verdict.OVER_LIMIT)
+                        mealIssues.forEach { issue ->
+                            val unit = if (issue.unit == "kcal") " kcal" else issue.unit
+                            val limit = issue.hits.minOf { it.limit }
+                            add("${issue.label.replaceFirstChar { it.uppercase() }} ${trim(issue.total)}/${trim(limit)}$unit" to issue.severity)
+                        }
+                    }
+                    chips.chunked(2).forEach { pair ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            pair.forEach { (text, sev) -> IssueChip(text, sev) }
+                        }
+                    }
+                    val sources = mealIssues.flatMap { it.hits }.map { it.condition.short }.distinct()
+                    val partial = mealIssues.any { it.partial }
+                    if (sources.isNotEmpty() || partial) {
+                        Text(
+                            buildList {
+                                if (sources.isNotEmpty()) add("Limits from " + sources.joinToString(", "))
+                                if (partial) add("some items lack data")
+                            }.joinToString(" \u00B7 "),
+                            fontSize = 11.sp,
+                            color = onSurface.copy(alpha = 0.68f)
+                        )
+                    }
                 }
 
                 entries.forEach { entry ->
@@ -304,6 +331,26 @@ fun MealAccordionCard(
     }
 }
 
+/** One meal-level problem: symbol + short numbers, tinted by how serious it is. */
+@Composable
+private fun IssueChip(text: String, severity: Verdict) {
+    val tone = severityColor(severity)
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(50))
+            .background(tone.copy(alpha = 0.12f))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            if (severity == Verdict.OVER_LIMIT) "\u2715" else "!",
+            fontSize = 11.sp, fontWeight = FontWeight.Bold, color = tone
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = tone)
+    }
+}
+
 @Composable
 private fun FoodRow(
     entry: FoodLogEntry,
@@ -328,6 +375,7 @@ private fun FoodRow(
     val worst = if (allergyHits.isNotEmpty()) Verdict.OVER_LIMIT
         else flags.maxByOrNull { it.severity.ordinal }?.severity
 
+    val tagColors = flags.map { severityColor(it.severity) }
     val sub = buildList {
         add("${trim(entry.fatGrams)}g fat")
         if (entry.proteinGrams > 0) add("${trim(entry.proteinGrams)}g prot")
@@ -374,7 +422,15 @@ private fun FoodRow(
                     Text(word, fontSize = if (simple) 15.sp else 12.sp, fontWeight = FontWeight.Medium, color = tone)
                 } else {
                     Text(
-                        if (isSafe) "$sub \u00B7 Safe" else sub,
+                        buildAnnotatedString {
+                            append(if (isSafe) "$sub \u00B7 Safe" else sub)
+                            flags.forEachIndexed { i, w ->
+                                append(" \u00B7 ")
+                                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = tagColors[i])) {
+                                    append(w.condition.short)
+                                }
+                            }
+                        },
                         fontSize = 12.sp,
                         color = onSurface.copy(alpha = 0.72f)
                     )
@@ -387,21 +443,6 @@ private fun FoodRow(
                         color = error,
                         modifier = Modifier.padding(top = 2.dp)
                     )
-                }
-                if (!simple && flags.isNotEmpty()) {
-                    Row(Modifier.padding(top = 2.dp)) {
-                        flags.forEachIndexed { i, w ->
-                            if (i > 0) {
-                                Text(" \u00B7 ", fontSize = 11.sp, color = onSurface.copy(alpha = 0.68f))
-                            }
-                            Text(
-                                w.condition.short,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = severityColor(w.severity)
-                            )
-                        }
-                    }
                 }
             }
             Spacer(Modifier.width(8.dp))
